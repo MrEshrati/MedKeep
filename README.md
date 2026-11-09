@@ -2,7 +2,7 @@
 
 An offline Python desktop project for recording, queuing, verifying, and reviewing medical-record entries through a hash-linked chain.
 
-**Status:** Clinical interface selected. The hand-written containers, paired hash chain, and hand-written SHA-256 implementation are complete; persistence and the desktop interface are in development.
+**Status:** Clinical interface selected. The hand-written containers, paired hash chain, handmade SHA-256, local storage, and daily archives are complete. The desktop interface is in development.
 
 ## Project requirements
 
@@ -36,11 +36,11 @@ The owner selected **Clinical**. See [the interface design references](docs/inte
 
 1. Requirements and interface choice — complete.
 2. Hand-written data structures and verification algorithms — complete; 22 core tests pass.
-3. Local persistence and daily archive workflow — planned.
+3. Local persistence and daily archive workflow — complete; 38 core/storage tests pass.
 4. Selected tabbed desktop interface — planned.
 5. End-to-end checks, documentation, and submission packaging — planned.
 
-The application uses Python's standard library. Run the current core checks with `python -m unittest tests.test_core -v`. Desktop launch instructions will be added when the UI is complete.
+The application uses Python's standard library. Run the current checks with `python -m unittest discover -v`. Desktop launch instructions will be added when the UI is complete. See [the storage design](docs/storage.md) for recovery behavior and local-file limits.
 
 ## Course submission
 
