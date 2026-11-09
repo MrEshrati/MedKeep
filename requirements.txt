@@ -1,0 +1,1 @@
+# No third-party packages. Python 3.11+ with Tcl/Tk (tkinter) is sufficient.
