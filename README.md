@@ -83,37 +83,6 @@ All four actual desktop tabs and the smaller-window layout were visually inspect
 
 Local validation passed all 50 tests on Windows/Python 3.14, all 50 again from a freshly extracted source ZIP, and the 43 non-GUI checks on Python 3.12. GitHub Actions is configured to run the suite on Windows with Python 3.11 and 3.14. Its third-party actions are pinned to exact official commit hashes, with read-only repository permissions.
 
-## Prepare a submission ZIP
-
-Create a source-only package without student details:
-
-```console
-python tools/package_submission.py --source
-```
-
-This writes `dist/MedKeep-source.zip`. To use the assignment's exact naming pattern, replace the example identity values:
-
-```console
-python tools/package_submission.py --first-name Firstname --last-name Lastname --student-number StudentNumber
-```
-
-The result is `dist/DSAProject1_FirstnameLastname_StudentNumber.zip`. The helper excludes workspace data, archives, Git history, virtual environments, caches, and generated packages. Extract the ZIP into its own folder, run the tests, and launch `python -m medkeep` there. Submission to Quera is a separate student action.
-
-Use the [student walkthrough](docs/student-walkthrough.md) to study and present the code, including the handmade-hash bonus objective.
-
-## Course requirements and milestones
-
-The [complete requirements](docs/requirements.md) distinguish the PDF's mandatory rules, bonus objectives, owner requirements, and implementation decisions.
-
-- [x] Read all six PDF pages and document requirements.
-- [x] Present interface alternatives and implement the selected Clinical design.
-- [x] Implement the linked structures, verification, and handmade-hash bonus objective.
-- [x] Persist pending requests and records; export verified daily archives.
-- [x] Verify native workflows, failure cases, and desktop layouts.
-- [x] Final delivery documentation and submission packaging.
-
-The course requests `DSAProject1_FirstnameLastname_StudentNumber.zip`, submitted through Quera. It states that work is individual, blind copying or blind use of AI is prohibited, and the student must understand and explain the code. Extra credit requires at least 80% completion of the core project and is capped at 30%.
-
 ## Scope and security
 
-This is a single-user educational project. It has no network service, login system, encrypted storage, or clinical certification. Use synthetic data when demonstrating it. Hashes detect inconsistencies relative to the stored chain; a privileged attacker can rewrite and recompute an entire chain, and suffix removal needs a separately trusted head digest to be detected. Protect the workspace and exported archives through your operating system. Default data, archives, generated ZIPs, and temporary Python files are excluded from Git.
+This is a single-user educational project. It has no network service, login system, encrypted storage, or clinical certification. Use synthetic data when demonstrating it. Hashes detect inconsistencies relative to the stored chain; a privileged attacker can rewrite and recompute an entire chain, and suffix removal needs a separately trusted head digest to be detected. Protect the workspace and exported archives through your operating system.
