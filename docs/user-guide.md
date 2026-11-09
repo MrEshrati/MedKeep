@@ -10,7 +10,7 @@ The application opens with an empty workspace. The screenshots in this repositor
 
 Open **Create** and enter a patient reference, clinician/author, visit date in `YYYY-MM-DD` form, title, and notes. A preview updates while you type. Patient reference, author, title and notes are required. Limits are 64, 80, 120, and 6,000 characters respectively. Unicode text is preserved; visual right-to-left shaping depends on the installed Tcl/Tk version.
 
-Choose **Add to queue** or press **Ctrl+Enter**. A successful save gives the request a stable number. It clears patient/title/notes for the next entry, preserving the clinician and visit date. A validation or save failure keeps the draft visible so you can correct it. **Clear form** clears the unsaved patient/title/notes without changing the saved queue.
+Choose **Add to queue** or press **Ctrl+Enter**. A successful save gives the request a stable number. It clears patient/title/notes for the next entry, preserving the clinician and visit date. A validation or save failure keeps the draft visible so you can correct it. The character count beside the save button shows the notes limit.
 
 ## Process the queue
 
@@ -48,7 +48,7 @@ Exporting does not clear or alter the chain. Repeating an export creates another
 | F5 | Verify the current chain |
 | Ctrl+A in notes | Select the draft's entire notes field |
 
-Use the page scrollbar or mouse wheel when the window is short. The notes and record tables also have their own scrolling. Windows rendering respects display scaling. During a save or verification, action controls are disabled to prevent duplicate operations. Closing waits for the current operation to finish.
+Use the page scrollbar or mouse wheel when the window is short. Scrollbars appear when their content needs scrolling. The notes and record tables also have their own scrolling. The dark Clinical theme matches the approved preview, and Windows rendering respects display scaling. During a save or verification, action controls are disabled to prevent duplicate operations. Closing waits for the current operation to finish.
 
 ## Workspace problems
 

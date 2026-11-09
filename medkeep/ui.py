@@ -16,15 +16,13 @@ from .chain import CheckStep, VerificationReport
 from .records import MedicalRecord
 from .service import MedKeepService
 from .structures import LinkedSequence
+from .appearance import (
+    BACKGROUND as BG, SURFACE as PANEL, TEXT as INK, SECONDARY_TEXT as MUTED,
+    BORDER as LINE, ACCENT as TEAL, TINT as SOFT, DANGER as RED, ON_ACCENT,
+    RoundedPanel, rounded_image, icon_image,
+)
+from .platform_support import dark_titlebar
 
-BG = "#F3F6F5"
-WHITE = "#FFFFFF"
-INK = "#173333"
-MUTED = "#60746F"
-LINE = "#DCE5E1"
-TEAL = "#14695B"
-SOFT = "#E7F1EC"
-RED = "#A13844"
 BODY = ("Segoe UI", 10)
 SMALL = ("Segoe UI", 9)
 
@@ -33,22 +31,26 @@ def label(parent, text="", *, bg=BG, fg=INK, font=BODY, **options):
     return tk.Label(parent, text=text, bg=bg, fg=fg, font=font, anchor="w", **options)
 
 
-def card(parent, *, bg=WHITE, padding=22):
-    return tk.Frame(parent, bg=bg, highlightbackground=LINE, highlightthickness=1,
-                    padx=padding, pady=padding)
+def card(parent, *, bg=PANEL, padding=22):
+    return RoundedPanel(parent, bg=bg, padding=padding, border=None if bg == SOFT else LINE)
 
 
 class ScrollPage(ttk.Frame):
     """A page expands to the available width and scrolls on smaller displays."""
 
-    def __init__(self, parent):
+    def __init__(self, parent, scale=1):
         super().__init__(parent, style="Page.TFrame")
         self.canvas = tk.Canvas(self, bg=BG, highlightthickness=0, borderwidth=0)
         scroll = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview, style="Clinical.Vertical.TScrollbar")
-        self.canvas.configure(yscrollcommand=scroll.set)
-        scroll.pack(side="right", fill="y")
+        def scroll_position(first, last):
+            scroll.set(first, last)
+            if float(first) <= 0 and float(last) >= 1:
+                scroll.pack_forget()
+            elif not scroll.winfo_manager():
+                scroll.pack(side="right", fill="y")
+        self.canvas.configure(yscrollcommand=scroll_position)
         self.canvas.pack(side="left", fill="both", expand=True)
-        self.body = tk.Frame(self.canvas, bg=BG, padx=28, pady=25)
+        self.body = tk.Frame(self.canvas, bg=BG, padx=round(28 * scale), pady=round(27 * scale))
         self.body.columnconfigure(0, weight=1)
         self.window = self.canvas.create_window(0, 0, window=self.body, anchor="nw")
         self.body.bind("<Configure>", self._body_changed)
@@ -103,8 +105,8 @@ class MedKeepApp:
         root.title("MedKeep")
         root.configure(bg=BG)
         self.display_scale = max(1.0, root.winfo_fpixels("1i") / 96)
-        width = min(round(1240 * self.display_scale), root.winfo_screenwidth() - round(60 * self.display_scale))
-        height = min(round(900 * self.display_scale), root.winfo_screenheight() - round(90 * self.display_scale))
+        width = min(round(1024 * self.display_scale), root.winfo_screenwidth() - round(60 * self.display_scale))
+        height = min(round(800 * self.display_scale), root.winfo_screenheight() - round(90 * self.display_scale))
         root.geometry(f"{width}x{height}")
         root.minsize(min(round(1000 * self.display_scale), width), min(round(680 * self.display_scale), height))
         root.protocol("WM_DELETE_WINDOW", self.close)
@@ -113,14 +115,17 @@ class MedKeepApp:
         self._footer()
         self.tabs = ttk.Notebook(root, style="Clinical.TNotebook")
         self.tabs.pack(fill="both", expand=True)
-        self.create_page = ScrollPage(self.tabs)
-        self.approval_page = ScrollPage(self.tabs)
-        self.queue_page = ScrollPage(self.tabs)
-        self.history_page = ScrollPage(self.tabs)
-        self.tabs.add(self.create_page, text="Create")
-        self.tabs.add(self.approval_page, text="Approval")
-        self.tabs.add(self.queue_page, text="Queue  0")
-        self.tabs.add(self.history_page, text="History")
+        self.create_page = ScrollPage(self.tabs, self.display_scale)
+        self.approval_page = ScrollPage(self.tabs, self.display_scale)
+        self.queue_page = ScrollPage(self.tabs, self.display_scale)
+        self.history_page = ScrollPage(self.tabs, self.display_scale)
+        self._nav_icons = tuple((icon_image(root, name, MUTED, self.px(16)), icon_image(root, name, TEAL, self.px(16)))
+                                for name in ("create", "approval", "queue", "history"))
+        self._clipboard_icon = icon_image(root, "clipboard", TEAL, self.px(17))
+        self.tabs.add(self.create_page, text="  Create", image=self._nav_icons[0][1], compound="left")
+        self.tabs.add(self.approval_page, text="  Approval", image=self._nav_icons[1][0], compound="left")
+        self.tabs.add(self.queue_page, text="  Queue  0", image=self._nav_icons[2][0], compound="left")
+        self.tabs.add(self.history_page, text="  History", image=self._nav_icons[3][0], compound="left")
         self._create_section()
         self._approval_section()
         self._queue_section()
@@ -137,21 +142,32 @@ class MedKeepApp:
             variable.trace_add("write", self._preview)
         self.history_search.trace_add("write", self._filter_history)
         self._refresh()
+        dark_titlebar(root)
 
     @property
     def busy(self):
         return self._job is not None
 
+    def px(self, value):
+        return round(value * self.display_scale)
+
     def _style(self):
         style = ttk.Style(self.root)
         style.theme_use("clam")
-        style.configure(".", font=BODY)
+        style.configure(".", font=BODY, background=PANEL, foreground=INK, fieldbackground=PANEL,
+                        bordercolor=LINE, lightcolor=LINE, darkcolor=LINE, troughcolor=BG,
+                        selectbackground=SOFT, selectforeground=INK)
         style.configure("Page.TFrame", background=BG)
-        style.configure("Clinical.TNotebook", background=WHITE, borderwidth=0, tabmargins=(28, 10, 0, 0))
-        style.configure("Clinical.TNotebook.Tab", background=WHITE, foreground=MUTED,
-                        borderwidth=0, padding=(23, 13), font=("Segoe UI", 10))
+        style.configure("Clinical.TNotebook", background=PANEL, borderwidth=0,
+                        bordercolor=BG, lightcolor=BG, darkcolor=BG,
+                        tabmargins=(self.px(28), self.px(13), 0, 0))
+        # Keep Tk's native notebook client element. A one-pixel image stretched
+        # as the client can enter a redraw loop on Windows/Tk 9.
+        style.layout("Clinical.TNotebook", [("Notebook.client", {"sticky":"nswe"})])
+        style.configure("Clinical.TNotebook.Tab", background=PANEL, foreground=MUTED,
+                        borderwidth=0, padding=(self.px(16), self.px(11)), font=("Segoe UI", 10))
         self._tab_plain = tk.PhotoImage(width=2, height=5)
-        self._tab_plain.put(WHITE, to=(0, 0, 2, 5))
+        self._tab_plain.put(PANEL, to=(0, 0, 2, 5))
         self._tab_plain.put(LINE, to=(0, 4, 2, 5))
         self._tab_selected = tk.PhotoImage(width=2, height=5)
         self._tab_selected.put(SOFT, to=(0, 0, 2, 5))
@@ -161,75 +177,115 @@ class MedKeepApp:
         style.layout("Clinical.TNotebook.Tab", [("Clinical.tab", {"sticky": "nswe", "children": [
             ("Notebook.padding", {"sticky": "nswe", "children": [("Notebook.label", {"sticky": "nswe"})]})]})])
         style.map("Clinical.TNotebook.Tab", foreground=[("selected", TEAL)],
-                  padding=[("selected", (23, 13)), ("!selected", (23, 13))],
+                  padding=[("selected", (self.px(16), self.px(11))), ("!selected", (self.px(16), self.px(11)))],
                   expand=[("selected", (0, 0, 0, 0))])
-        style.configure("Primary.TButton", background=TEAL, foreground=WHITE, padding=(17, 11),
-                        borderwidth=0, font=("Segoe UI", 10, "bold"))
-        style.map("Primary.TButton", background=[("disabled", "#C9D6D1"), ("active", "#0E574B")],
-                  foreground=[("disabled", "#596E67")])
-        style.configure("Secondary.TButton", background=WHITE, foreground=INK, padding=(14, 10),
-                        borderwidth=1, bordercolor=LINE)
-        style.map("Secondary.TButton", background=[("active", SOFT), ("disabled", BG)], foreground=[("disabled", MUTED)])
-        style.configure("Clinical.TEntry", padding=(10, 9), fieldbackground=WHITE,
-                        foreground=INK, bordercolor=LINE, lightcolor=LINE, darkcolor=LINE)
-        style.map("Clinical.TEntry", bordercolor=[("focus", TEAL)])
-        style.configure("Clinical.Treeview", background=WHITE, fieldbackground=WHITE, foreground=INK,
-                        rowheight=42, borderwidth=0, font=BODY)
-        style.configure("Clinical.Treeview.Heading", background=WHITE, foreground=MUTED,
-                        font=("Segoe UI", 9), padding=(9, 12), borderwidth=0)
+        radius = self.px(7)
+        self._button_plain = rounded_image(self.root, TEAL, radius=radius, border=TEAL)
+        self._button_hover = rounded_image(self.root, "#8ad7c2", radius=radius, border="#8ad7c2")
+        self._button_disabled = rounded_image(self.root, SOFT, radius=radius, border=LINE)
+        self._button_focus = rounded_image(self.root, TEAL, radius=radius, border=INK)
+        self._secondary_plain = rounded_image(self.root, PANEL, radius=radius, border=LINE)
+        self._secondary_hover = rounded_image(self.root, SOFT, radius=radius, border=TEAL)
+        self._entry_focus = rounded_image(self.root, PANEL, radius=radius, border=TEAL)
+        style.element_create("Clinical.primary", "image", self._button_plain,
+                             ("disabled", self._button_disabled), ("active", self._button_hover),
+                             ("focus", self._button_focus), border=radius, padding=0, sticky="nswe")
+        style.element_create("Clinical.secondary", "image", self._secondary_plain,
+                             ("disabled", self._button_disabled), ("active", self._secondary_hover),
+                             ("focus", self._secondary_hover), border=radius, padding=0, sticky="nswe")
+        style.element_create("Clinical.entry", "image", self._secondary_plain,
+                             ("focus", self._entry_focus), border=radius, padding=0, sticky="nswe")
+        for name, element in (("Primary.TButton", "Clinical.primary"), ("Secondary.TButton", "Clinical.secondary"),
+                              ("PrimaryPage.TButton", "Clinical.primary"), ("SecondaryPage.TButton", "Clinical.secondary")):
+            style.layout(name, [(element, {"sticky":"nswe", "children":[
+                ("Button.padding", {"sticky":"nswe", "children":[("Button.label", {"sticky":"nswe"})]})]})])
+        for name, surface, primary in (("Primary.TButton", PANEL, True), ("Secondary.TButton", PANEL, False),
+                                       ("PrimaryPage.TButton", BG, True), ("SecondaryPage.TButton", BG, False)):
+            style.configure(name, background=surface, foreground=ON_ACCENT if primary else INK,
+                            padding=(self.px(15), self.px(10)), borderwidth=0,
+                            font=("Segoe UI", 9, "bold" if primary else "normal"))
+            style.map(name, foreground=[("disabled", MUTED)],
+                      background=[("disabled", surface), ("active", surface), ("pressed", surface)])
+        style.layout("Clinical.TEntry", [("Clinical.entry", {"sticky":"nswe", "children":[
+            ("Entry.padding", {"sticky":"nswe", "children":[("Entry.textarea", {"sticky":"nswe"})]})]})])
+        style.configure("Clinical.TEntry", padding=(self.px(11), self.px(9)), fieldbackground=PANEL,
+                        foreground=INK, insertcolor=TEAL, selectbackground=SOFT, selectforeground=INK,
+                        borderwidth=0)
+        style.map("Clinical.TEntry", foreground=[("disabled", MUTED)], fieldbackground=[("disabled", PANEL)])
+        style.configure("Clinical.Treeview", background=PANEL, fieldbackground=PANEL, foreground=INK,
+                        rowheight=self.px(42), borderwidth=0, font=SMALL)
+        style.layout("Clinical.Treeview", [("Treeview.treearea", {"sticky":"nswe"})])
+        style.configure("Clinical.Treeview.Heading", background=PANEL, foreground=MUTED,
+                        font=("Segoe UI", 8), padding=(self.px(9), self.px(12)), borderwidth=0)
+        style.layout("Clinical.Treeview.Heading", [("Treeheading.cell", {"sticky":"nswe"}),
+            ("Treeheading.padding", {"sticky":"nswe", "children":[("Treeheading.text", {"sticky":"we"})]})])
+        style.map("Clinical.Treeview.Heading", background=[("active", SOFT)])
         style.map("Clinical.Treeview", background=[("selected", SOFT)], foreground=[("selected", TEAL)])
         style.configure("Clinical.Horizontal.TProgressbar", background=TEAL, troughcolor=SOFT, borderwidth=0)
         style.configure("Clinical.Vertical.TScrollbar", background=LINE, troughcolor=BG, borderwidth=0,
-                        arrowsize=10, width=10)
+                        arrowsize=6, width=6, relief="flat", bordercolor=BG, lightcolor=LINE, darkcolor=LINE)
+        style.map("Clinical.Vertical.TScrollbar", background=[("active", MUTED), ("pressed", TEAL)])
         style.layout("Clinical.Vertical.TScrollbar", [("Vertical.Scrollbar.trough", {"sticky":"ns", "children":[
             ("Vertical.Scrollbar.thumb", {"sticky":"nswe"})]})])
 
     def _header(self):
-        header = tk.Frame(self.root, bg=WHITE, padx=29, pady=20)
+        header = tk.Frame(self.root, bg=PANEL, padx=self.px(28), pady=self.px(21))
         header.pack(fill="x")
-        mark = tk.Canvas(header, width=37, height=37, bg=WHITE, highlightthickness=0)
-        mark.pack(side="left", padx=(0, 12))
-        mark.create_oval(0, 0, 37, 37, fill=TEAL, outline=TEAL)
-        mark.create_line(18, 10, 18, 27, fill=WHITE, width=2)
-        mark.create_line(10, 18, 27, 18, fill=WHITE, width=2)
-        wordmark = tk.Frame(header, bg=WHITE)
+        mark = RoundedPanel(header, bg=TEAL, padding=0, radius=9, border=None)
+        mark.configure(width=self.px(31), height=self.px(31))
+        mark.pack_propagate(False)
+        mark.pack(side="left", padx=(0, self.px(11)))
+        def paint_mark(event):
+            x, y, arm = event.width / 2, event.height / 2, self.px(6)
+            mark._backdrop.create_line(x, y - arm, x, y + arm, fill=ON_ACCENT, width=self.px(1.5))
+            mark._backdrop.create_line(x - arm, y, x + arm, y, fill=ON_ACCENT, width=self.px(1.5))
+        mark.bind("<Configure>", paint_mark, add="+")
+        wordmark = tk.Frame(header, bg=PANEL)
         wordmark.pack(side="left")
-        label(wordmark, "MedKeep", bg=WHITE, font=("Segoe UI", 17, "bold")).pack(anchor="w")
-        label(wordmark, "R E C O R D S ,  K E P T  W I T H  C A R E .", bg=WHITE, fg=MUTED,
+        label(wordmark, "MedKeep", bg=PANEL, font=("Segoe UI", -self.px(19), "bold")).pack(anchor="w")
+        label(wordmark, "R E C O R D S ,  K E P T  W I T H  C A R E .", bg=PANEL, fg=MUTED,
               font=("Segoe UI", 7)).pack(anchor="w")
-        label(header, "●  Offline workspace", bg=SOFT, fg=TEAL, font=SMALL, padx=14, pady=7).pack(side="right")
+        pill = RoundedPanel(header, bg=PANEL, padding=(10, 5), radius=15, border=LINE)
+        pill.pack(side="right")
+        label(pill, "●", bg=PANEL, fg=TEAL, font=("Segoe UI", 7)).pack(side="left", padx=(0, self.px(6)))
+        label(pill, "Offline workspace", bg=PANEL, fg=MUTED, font=("Segoe UI", 8)).pack(side="left")
         tk.Frame(self.root, bg=LINE, height=1).pack(fill="x")
 
     def _footer(self):
-        footer = tk.Frame(self.root, bg=BG, padx=29, pady=11)
-        footer.pack(side="bottom", fill="x")
-        self.status_label = label(footer, textvariable=self.status, fg=MUTED, font=SMALL, wraplength=780)
+        outer = tk.Frame(self.root, bg=BG)
+        outer.pack(side="bottom", fill="x")
+        tk.Frame(outer, bg=LINE, height=1).pack(fill="x")
+        footer = tk.Frame(outer, bg=BG, padx=self.px(28), pady=self.px(11))
+        footer.pack(fill="x")
+        self.status_label = label(footer, textvariable=self.status, fg=MUTED, font=("Segoe UI", 7), wraplength=self.px(780))
         self.status_label.pack(side="left")
         self.progress = ttk.Progressbar(footer, mode="indeterminate", length=100,
                                        style="Clinical.Horizontal.TProgressbar")
-        self.saved_label = label(footer, "Saved locally", fg=MUTED, font=SMALL)
+        self.saved_label = label(footer, "Saved locally", fg=MUTED, font=("Segoe UI", 7))
         self.saved_label.pack(side="right")
 
     def _hero(self, page, eyebrow, title, subtitle):
         top = tk.Frame(page.body, bg=BG)
-        top.grid(row=0, column=0, sticky="ew", pady=(0, 23))
+        top.grid(row=0, column=0, sticky="ew", pady=(0, self.px(23)))
         top.columnconfigure(0, weight=1)
-        label(top, eyebrow.upper(), fg=TEAL, font=("Segoe UI", 8, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 8))
-        label(top, title, font=("Segoe UI", 23, "bold")).grid(row=1, column=0, sticky="w")
+        label(top, eyebrow.upper(), fg=TEAL, font=("Segoe UI", 7, "bold")).grid(row=0, column=0, sticky="w", pady=(0, self.px(8)))
+        label(top, title, font=("Segoe UI", -self.px(29), "bold")).grid(row=1, column=0, sticky="w")
         label(top, subtitle, fg=MUTED, font=SMALL).grid(row=2, column=0, sticky="w", pady=(8, 0))
-        label(top, datetime.now().strftime("%d %b %Y"), fg=MUTED, font=SMALL).grid(row=0, column=1, sticky="e")
+        label(top, datetime.now().strftime("%d %b %Y"), fg=MUTED, font=("Segoe UI", 8)).grid(row=0, column=1, sticky="e")
 
     def _button(self, parent, text, command, primary=False):
+        on_page = parent["bg"] == BG
+        name = ("Primary" if primary else "Secondary") + ("Page" if on_page else "") + ".TButton"
         button = ttk.Button(parent, text=text, command=command,
-                            style="Primary.TButton" if primary else "Secondary.TButton")
+                            style=name)
         self._controls.append(button)
         return button
 
-    def _field(self, parent, text, variable, row, column, *, background=WHITE, width=25):
+    def _field(self, parent, text, variable, row, column, *, background=PANEL, width=25):
         field = tk.Frame(parent, bg=background)
-        field.grid(row=row, column=column, sticky="ew", padx=(0, 9) if column == 0 else (9, 0), pady=(0, 17))
-        label(field, text, bg=background, font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 7))
-        entry = ttk.Entry(field, textvariable=variable, style="Clinical.TEntry", width=width)
+        field.grid(row=row, column=column, sticky="ew", padx=(0, self.px(8)) if column == 0 else (self.px(8), 0), pady=(0, self.px(16)))
+        label(field, text, bg=background, font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, self.px(6)))
+        entry = ttk.Entry(field, textvariable=variable, style="Clinical.TEntry", width=width, font=SMALL)
         entry.pack(fill="x")
         self._controls.append(entry)
         return entry
@@ -240,68 +296,86 @@ class MedKeepApp:
                    "Prepare an entry and send it to the processing queue.")
         columns = tk.Frame(page.body, bg=BG)
         columns.grid(row=1, column=0, sticky="ew")
-        columns.columnconfigure(0, weight=3, minsize=490)
-        columns.columnconfigure(1, weight=2, minsize=285)
-        form = card(columns)
-        form.grid(row=0, column=0, sticky="new", padx=(0, 20))
-        label(form, "Record details", bg=WHITE, font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 22))
-        fields = tk.Frame(form, bg=WHITE)
+        columns.columnconfigure(0, weight=3, uniform="create")
+        columns.columnconfigure(1, weight=2, uniform="create")
+        form = card(columns, padding=23)
+        form.grid(row=0, column=0, sticky="new", padx=(0, self.px(20)))
+        label(form, "  Record details", bg=PANEL, image=self._clipboard_icon, compound="left",
+              font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, self.px(20)))
+        fields = tk.Frame(form, bg=PANEL)
         fields.pack(fill="x")
         fields.columnconfigure(0, weight=1)
         fields.columnconfigure(1, weight=1)
         self.patient_entry = self._field(fields, "Patient reference", self.patient, 0, 0)
         self._field(fields, "Recorded by", self.author, 0, 1)
-        self._field(fields, "Visit date · YYYY-MM-DD", self.visit_date, 1, 0)
+        self._field(fields, "Visit date", self.visit_date, 1, 0)
         self._field(fields, "Record title", self.record_title, 1, 1)
-        label(form, "Clinical notes", bg=WHITE, font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 7))
-        note_frame = tk.Frame(form, bg=WHITE, highlightbackground=LINE, highlightthickness=1)
+        label(form, "Clinical notes", bg=PANEL, font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, self.px(6)))
+        note_frame = RoundedPanel(form, bg=PANEL, padding=(11, 9), radius=7, border=LINE)
         note_frame.pack(fill="both", expand=True)
-        self.notes = tk.Text(note_frame, height=7, width=1, wrap="word", font=BODY, relief="flat",
-                             bg=WHITE, fg=INK, padx=11, pady=10, undo=True, insertbackground=TEAL)
+        self.notes = tk.Text(note_frame, height=5, width=1, wrap="word", font=SMALL, relief="flat",
+                             bg=PANEL, fg=INK, padx=0, pady=0, borderwidth=0, highlightthickness=0,
+                             undo=True, insertbackground=TEAL, selectbackground=SOFT, selectforeground=INK,
+                             inactiveselectbackground=SOFT)
         note_scroll = ttk.Scrollbar(note_frame, command=self.notes.yview, style="Clinical.Vertical.TScrollbar")
         self.notes.configure(yscrollcommand=note_scroll.set)
-        note_scroll.pack(side="right", fill="y")
+        # Keep the clean preview surface; the narrow scrollbar appears only
+        # when a long note actually needs it.
+        def note_scroll_position(first, last):
+            note_scroll.set(first, last)
+            if float(first) <= 0 and float(last) >= 1:
+                note_scroll.pack_forget()
+            elif not note_scroll.winfo_manager():
+                note_scroll.pack(side="right", fill="y")
+        self.notes.configure(yscrollcommand=note_scroll_position)
         self.notes.pack(side="left", fill="both", expand=True)
         self._controls.append(self.notes)
         self.notes.bind("<<Modified>>", self._notes_changed)
         self.notes.bind("<Control-a>", self._select_all_notes)
         self.notes.bind("<Control-A>", self._select_all_notes)
-        label(form, textvariable=self.note_count, bg=WHITE, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", pady=(7, 0))
-        actions = tk.Frame(form, bg=WHITE)
-        actions.pack(fill="x", pady=(21, 0))
-        self._button(actions, "Clear form", self.clear_form).pack(side="left")
+        actions = tk.Frame(form, bg=PANEL)
+        actions.pack(fill="x", pady=(self.px(22), 0))
+        label(actions, textvariable=self.note_count, bg=PANEL, fg=MUTED, font=("Segoe UI", 8)).pack(side="left")
         self._button(actions, "Add to queue  →", self.enqueue, primary=True).pack(side="right")
         summary = card(columns, bg=SOFT, padding=22)
         summary.grid(row=0, column=1, sticky="new")
         line = tk.Frame(summary, bg=SOFT)
-        line.pack(fill="x", pady=(0, 25))
-        label(line, "R E Q U E S T  P R E V I E W", bg=SOFT, fg=MUTED, font=("Segoe UI", 8)).pack(side="left")
-        label(line, "Draft", bg=SOFT, fg=MUTED, font=("Segoe UI", 8)).pack(side="right")
+        line.pack(fill="x", pady=(0, self.px(20)))
+        label(line, "R E Q U E S T  P R E V I E W", bg=SOFT, fg=MUTED, font=("Segoe UI", 7)).pack(side="left")
+        badge = RoundedPanel(line, bg=SOFT, radius=4, border=LINE, padding=(7, 2))
+        badge.pack(side="right")
+        label(badge, "Draft", bg=SOFT, fg=MUTED, font=("Segoe UI", 7)).pack()
         label(summary, textvariable=self.preview_patient, bg=SOFT, fg=MUTED, font=SMALL,
               wraplength=290, justify="left").pack(anchor="w")
-        label(summary, textvariable=self.preview_title, bg=SOFT, font=("Segoe UI", 16, "bold"),
-              wraplength=290, justify="left").pack(anchor="w", pady=(7, 21))
+        preview_heading = label(summary, textvariable=self.preview_title, bg=SOFT, font=("Segoe UI", -self.px(20), "bold"),
+                                wraplength=self.px(290), justify="left")
+        preview_heading.pack(anchor="w", pady=(self.px(5), self.px(17)))
         self._summary_line(summary, "Recorded by", self.preview_author)
         self._summary_line(summary, "Visit date", self.preview_date)
         self._summary_line(summary, "Destination", "FIFO queue")
-        label(summary, textvariable=self.preview_notes, bg=SOFT, wraplength=290, justify="left",
-              font=SMALL).pack(anchor="w", pady=(18, 25))
+        preview_note = label(summary, textvariable=self.preview_notes, bg=SOFT, wraplength=self.px(290), justify="left", font=SMALL)
+        preview_note.pack(anchor="w", pady=(self.px(16), self.px(23)))
+        def resize_preview(event):
+            available = max(120, event.width - self.px(44))
+            if int(preview_heading["wraplength"]) != available:
+                preview_heading.configure(wraplength=available)
+            if int(preview_note["wraplength"]) != available:
+                preview_note.configure(wraplength=available)
+        summary.bind("<Configure>", resize_preview, add="+")
         label(summary, "Create  →  Queue  →  Chain  →  Verify", bg=SOFT, fg=TEAL,
               font=("Segoe UI", 8)).pack(anchor="w")
-        label(page.body, "Ctrl+Enter to enqueue   ·   Your draft stays here until the save succeeds.",
-              fg=MUTED, font=("Segoe UI", 8)).grid(row=2, column=0, sticky="w", pady=(16, 0))
 
     def _summary_line(self, parent, text, value):
         row = tk.Frame(parent, bg=parent["bg"])
         row.pack(fill="x", pady=(0, 0))
         row.columnconfigure(1, weight=1)
-        label(row, text, bg=parent["bg"], fg=MUTED, font=SMALL).grid(row=0, column=0, sticky="w", pady=10)
+        label(row, text, bg=parent["bg"], fg=MUTED, font=SMALL).grid(row=0, column=0, sticky="w", pady=self.px(10))
         options = {"textvariable": value} if isinstance(value, tk.Variable) else {"text": value}
         label(row, bg=parent["bg"], font=SMALL, wraplength=180, justify="right", **options).grid(row=0, column=1, sticky="e", padx=(10, 0), pady=10)
         tk.Frame(parent, bg=LINE, height=1).pack(fill="x")
 
     def _tree(self, parent, columns, headings, widths, height=7):
-        shell = tk.Frame(parent, bg=WHITE)
+        shell = tk.Frame(parent, bg=PANEL)
         shell.pack(fill="both", expand=True)
         tree = ttk.Treeview(shell, columns=columns, show="headings", selectmode="browse",
                             style="Clinical.Treeview", height=height)
@@ -309,8 +383,13 @@ class MedKeepApp:
             tree.heading(name, text=heading, anchor="w")
             tree.column(name, width=width, minwidth=45, stretch=True, anchor="w")
         scroll = ttk.Scrollbar(shell, command=tree.yview, style="Clinical.Vertical.TScrollbar")
-        tree.configure(yscrollcommand=scroll.set)
-        scroll.pack(side="right", fill="y")
+        def tree_scroll_position(first, last):
+            scroll.set(first, last)
+            if float(first) <= 0 and float(last) >= 1:
+                scroll.pack_forget()
+            elif not scroll.winfo_manager():
+                scroll.pack(side="right", fill="y")
+        tree.configure(yscrollcommand=tree_scroll_position)
         tree.pack(side="left", fill="both", expand=True)
         return tree
 
@@ -331,22 +410,22 @@ class MedKeepApp:
         columns.columnconfigure(1, weight=2)
         checks = card(columns)
         checks.grid(row=0, column=0, sticky="nsew", padx=(0, 18))
-        label(checks, "Step-by-step verification", bg=WHITE, font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 12))
-        self.check_tree = self._tree(checks, ("node", "kind", "result"), ("Node", "Type", "Result"), (75, 100, 150), height=6)
+        label(checks, "Step-by-step verification", bg=PANEL, font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 12))
+        self.check_tree = self._tree(checks, ("node", "kind", "result"), ("Node", "Type", "Result"), (75, 100, 150), height=4)
         self.check_tree.bind("<<TreeviewSelect>>", self._select_step)
         detail = card(columns)
         detail.grid(row=0, column=1, sticky="nsew")
-        label(detail, "Selected check", bg=WHITE, font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 17))
-        self.step_description = label(detail, "Run verification to inspect the chain.", bg=WHITE, fg=MUTED,
+        label(detail, "Selected check", bg=PANEL, font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 17))
+        self.step_description = label(detail, "Run verification to inspect the chain.", bg=PANEL, fg=MUTED,
                                       wraplength=310, justify="left", font=SMALL)
         self.step_description.pack(anchor="w", pady=(0, 16))
-        label(detail, "Stored hash", bg=WHITE, fg=MUTED, font=SMALL).pack(anchor="w")
-        self.stored_hash = label(detail, "—", bg=WHITE, font=("Consolas", 9), wraplength=310, justify="left")
+        label(detail, "Stored hash", bg=PANEL, fg=MUTED, font=SMALL).pack(anchor="w")
+        self.stored_hash = label(detail, "—", bg=PANEL, font=("Consolas", 9), wraplength=310, justify="left")
         self.stored_hash.pack(anchor="w", pady=(5, 18))
-        label(detail, "Recalculated hash", bg=WHITE, fg=MUTED, font=SMALL).pack(anchor="w")
-        self.calculated_hash = label(detail, "—", bg=WHITE, font=("Consolas", 9), wraplength=310, justify="left")
+        label(detail, "Recalculated hash", bg=PANEL, fg=MUTED, font=SMALL).pack(anchor="w")
+        self.calculated_hash = label(detail, "—", bg=PANEL, font=("Consolas", 9), wraplength=310, justify="left")
         self.calculated_hash.pack(anchor="w", pady=(5, 16))
-        label(detail, "SHA-256 · implemented by hand", bg=WHITE, fg=TEAL, font=("Segoe UI", 8)).pack(anchor="w")
+        label(detail, "SHA-256 · implemented by hand", bg=PANEL, fg=TEAL, font=("Segoe UI", 8)).pack(anchor="w")
         actions = tk.Frame(page.body, bg=BG)
         actions.grid(row=3, column=0, sticky="ew", pady=(18, 0))
         self._button(actions, "Verify integrity", self.verify, primary=True).pack(side="left")
@@ -360,15 +439,15 @@ class MedKeepApp:
                    "The oldest request is always processed first, regardless of the selected row.")
         panel = card(page.body)
         panel.grid(row=1, column=0, sticky="ew")
-        self.queue_count_label = label(panel, "No requests waiting", bg=WHITE, font=("Segoe UI", 12, "bold"))
+        self.queue_count_label = label(panel, "No requests waiting", bg=PANEL, font=("Segoe UI", 12, "bold"))
         self.queue_count_label.pack(anchor="w", pady=(0, 13))
         self.queue_tree = self._tree(panel, ("position", "request", "patient", "title", "received"),
                                      ("Order", "Request", "Patient", "Record title", "Received"),
-                                     (55, 130, 110, 260, 180), height=6)
+                                     (55, 130, 110, 260, 180), height=4)
         self.queue_tree.bind("<<TreeviewSelect>>", self._select_pending)
-        actions = tk.Frame(panel, bg=WHITE)
+        actions = tk.Frame(panel, bg=PANEL)
         actions.pack(fill="x", pady=(18, 0))
-        label(actions, "Each request creates a content node and its seal.", bg=WHITE, fg=MUTED, font=SMALL).pack(side="left")
+        label(actions, "Each request creates a content node and its seal.", bg=PANEL, fg=MUTED, font=SMALL).pack(side="left")
         self.process_button = self._button(actions, "Process oldest  →", self.process_next, primary=True)
         self.process_button.pack(side="right")
         detail = card(page.body, bg=SOFT, padding=19)
@@ -386,8 +465,8 @@ class MedKeepApp:
                    "Review verified entries and prepare a daily archive. Sealed records are read-only.")
         self.history_gate = card(page.body, padding=27)
         self.history_gate.grid(row=1, column=0, sticky="ew")
-        label(self.history_gate, "Verification comes first", bg=WHITE, font=("Segoe UI", 14, "bold")).pack(anchor="w")
-        self.gate_message = label(self.history_gate, "Run the integrity check in Approval to open record history.", bg=WHITE, fg=MUTED,
+        label(self.history_gate, "Verification comes first", bg=PANEL, font=("Segoe UI", 14, "bold")).pack(anchor="w")
+        self.gate_message = label(self.history_gate, "Run the integrity check in Approval to open record history.", bg=PANEL, fg=MUTED,
                                   wraplength=900, justify="left", font=BODY)
         self.gate_message.pack(anchor="w", pady=(10, 19))
         self._button(self.history_gate, "Go to Approval  →", lambda: self.tabs.select(self.approval_page), primary=True).pack(anchor="w")
@@ -399,25 +478,29 @@ class MedKeepApp:
         self.search_entry = ttk.Entry(searchbar, textvariable=self.history_search, style="Clinical.TEntry", width=38)
         self.search_entry.pack(side="left")
         label(searchbar, "Patient, title or request number", fg=MUTED, font=("Segoe UI", 8)).pack(side="left", padx=12)
-        panel = card(self.history_content)
-        panel.pack(fill="x")
-        self.history_count = label(panel, "No records yet", bg=WHITE, font=("Segoe UI", 12, "bold"))
+        records_and_detail = tk.Frame(self.history_content, bg=BG)
+        records_and_detail.pack(fill="x")
+        records_and_detail.columnconfigure(0, weight=3, uniform="history")
+        records_and_detail.columnconfigure(1, weight=2, uniform="history")
+        panel = card(records_and_detail)
+        panel.grid(row=0, column=0, sticky="nsew", padx=(0, self.px(20)))
+        self.history_count = label(panel, "No records yet", bg=PANEL, font=("Segoe UI", 12, "bold"))
         self.history_count.pack(anchor="w", pady=(0, 13))
         self.history_tree = self._tree(panel, ("request", "patient", "title", "processed"),
                                        ("Request", "Patient", "Record title", "Processed"),
-                                       (140, 120, 320, 210), height=4)
+                                       (100, 80, 150, 100), height=4)
         self.history_tree.bind("<<TreeviewSelect>>", self._select_history)
-        detail = card(self.history_content, bg=SOFT, padding=19)
-        detail.pack(fill="x", pady=17)
-        self.history_title = label(detail, "Select a verified record", bg=SOFT, font=("Segoe UI", 12, "bold"), wraplength=950, justify="left")
+        detail = card(records_and_detail, bg=SOFT, padding=19)
+        detail.grid(row=0, column=1, sticky="nsew")
+        self.history_title = label(detail, "Select a verified record", bg=SOFT, font=("Segoe UI", 12, "bold"), wraplength=self.px(280), justify="left")
         self.history_title.pack(anchor="w")
-        self.history_meta = label(detail, "", bg=SOFT, fg=MUTED, font=SMALL, wraplength=950, justify="left")
+        self.history_meta = label(detail, "", bg=SOFT, fg=MUTED, font=SMALL, wraplength=self.px(280), justify="left")
         self.history_meta.pack(anchor="w", pady=(6, 10))
-        self.history_notes = tk.Text(detail, height=3, width=1, wrap="word", font=BODY, bg=SOFT, fg=INK,
+        self.history_notes = tk.Text(detail, height=7, width=1, wrap="word", font=SMALL, bg=SOFT, fg=INK,
                                      relief="flat", borderwidth=0, state="disabled", padx=0, pady=0)
         self.history_notes.pack(fill="x")
         archive = tk.Frame(self.history_content, bg=BG)
-        archive.pack(fill="x", before=panel, pady=(0, 14))
+        archive.pack(fill="x", before=records_and_detail, pady=(0, 14))
         label(archive, "Processed date", fg=MUTED, font=SMALL).pack(side="left", padx=(0, 12))
         archive_entry = ttk.Entry(archive, textvariable=self.archive_date, style="Clinical.TEntry", width=13)
         archive_entry.pack(side="left", padx=(0, 12))
@@ -427,7 +510,7 @@ class MedKeepApp:
         self.open_archive_button = self._button(archive, "Open last archive", self.open_archive)
         self.open_archive_button.pack(side="left", padx=10)
         label(self.history_content, "Archives are saved in the workspace's archives folder. Original records stay in the chain.",
-              fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", before=panel, pady=(0, 14))
+              fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", before=records_and_detail, pady=(0, 14))
         self.history_content.grid_remove()
 
     def _select_all_notes(self, _event):
@@ -554,7 +637,7 @@ class MedKeepApp:
         self.status_label.configure(fg=RED if error else TEAL)
 
     def _refresh(self):
-        self.tabs.tab(self.queue_page, text=f"Queue  {self.service.pending_count}")
+        self.tabs.tab(self.queue_page, text=f"  Queue  {self.service.pending_count}")
         self.queue_count_label.configure(text=f"{self.service.pending_count} request(s) waiting" if self.service.pending_count else "All clear. No requests waiting.")
         selection = self.queue_tree.selection()
         for item in self.queue_tree.get_children():
@@ -644,6 +727,9 @@ class MedKeepApp:
                 return
 
     def _tab_changed(self, _event=None):
+        selected = self.tabs.index("current")
+        for index, images in enumerate(self._nav_icons):
+            self.tabs.tab(index, image=images[1 if selected == index else 0])
         if self.busy:
             return
         if self.tabs.select() == str(self.history_page) and self.service.report is not None and self.service.report.ok:

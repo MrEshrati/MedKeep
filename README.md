@@ -2,7 +2,7 @@
 
 **An offline Python desktop application for creating, queuing, verifying, and archiving medical-record entries.**
 
-MedKeep implements the course project's singly linked content/seal chain, FIFO request queue, and SHA-256 hash function **by hand**. The selected Clinical interface separates each workflow into its own tab. No third-party packages or internet connection are required.
+MedKeep implements the course project's singly linked content/seal chain, FIFO request queue, and SHA-256 hash function **by hand**. The selected dark Clinical interface separates each workflow into its own tab. No third-party packages or internet connection are required.
 
 ![MedKeep Clinical desktop interface](docs/images/clinical-app-create.png)
 
@@ -39,6 +39,8 @@ Keyboard shortcuts: **Ctrl+Enter** saves a Create request, **Ctrl+1–4** change
 
 Read the [user guide](docs/user-guide.md) for a complete first-run walkthrough and recovery advice. See [the design references](docs/interface-concepts.md) for the original Clinical selection.
 
+The application uses the approved preview's dark green surfaces, soft mint accents, rounded cards and controls, and outline tab icons. The fixed palette and design reference are documented in [the Clinical theme notes](docs/clinical-theme.md).
+
 ## Hand-written algorithms
 
 - **FIFO queue:** custom nodes, front/rear references, enqueue, peek, and dequeue.
@@ -62,6 +64,7 @@ medkeep/
   storage.py          Versioned snapshots, file locking and atomic saves
   service.py          Transactional record processing and daily archives
   ui.py               Clinical desktop interface
+  appearance.py       Dark Clinical colors, rounded surfaces and UI assets
   platform_support.py Windows display-scaling support
   __main__.py         Command-line launcher
 tests/                Algorithm, storage, constraints and native UI checks
@@ -77,11 +80,11 @@ The model and service do not depend on Tkinter. See [the storage design](docs/st
 python -m unittest discover -v
 ```
 
-The **50 tests** cover published SHA-256 vectors (including one million `a` bytes), incremental hashing and padding boundaries, FIFO operations, paired-node construction, tampering and cycles, Unicode, restart recovery, failed writes, external edits, archive dates, source packaging, and all four native UI workflows. A source constraint check protects against ready-made collection/hash shortcuts. The seven native UI tests require a display and skip when none is available; on a Linux CI runner they can run under Xvfb.
+The **51 tests** cover published SHA-256 vectors (including one million `a` bytes), incremental hashing and padding boundaries, FIFO operations, paired-node construction, tampering and cycles, Unicode, restart recovery, failed writes, external edits, archive dates, source packaging, and all four native UI workflows. A source constraint check protects against ready-made collection/hash shortcuts. The eight native UI tests require a display and skip when none is available; on a Linux CI runner they can run under Xvfb. A separate-process visible-window check detects native redraw hangs with a bounded timeout.
 
 All four actual desktop tabs and the smaller-window layout were visually inspected on Windows. Screenshots use temporary synthetic records.
 
-Local validation passed all 50 tests on Windows/Python 3.14, all 50 again from a freshly extracted source ZIP, and the 43 non-GUI checks on Python 3.12. GitHub Actions is configured to run the suite on Windows with Python 3.11 and 3.14. Its third-party actions are pinned to exact official commit hashes, with read-only repository permissions.
+Local validation passes on Windows/Python 3.14, including the visible-window check. The 43 non-GUI checks were also validated on Python 3.12. GitHub Actions runs the suite on Windows with Python 3.11 and 3.14. Its third-party actions are pinned to exact official commit hashes, with read-only repository permissions.
 
 ## Scope and security
 

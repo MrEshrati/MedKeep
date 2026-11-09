@@ -8,7 +8,7 @@ All concepts separate **Create**, **Approval**, **Queue**, and **History**. Appr
 
 A calm teal workspace with horizontal tabs. The form sits alongside a live request preview, making it easy to check details before enqueueing a record. Recommended for a balance of clarity and efficient use.
 
-![Clinical interface concept](images/clinical-desktop.png)
+![Approved dark Clinical interface concept](images/clinical-dark-reference.png)
 
 ## Workspace
 
@@ -37,4 +37,4 @@ Desktop screenshots of all three concepts and a Clinical dark/narrow view were a
 
 ## Completed Python application
 
-The selected Clinical interface has now been implemented in Python/Tkinter with the four separate workflow tabs. The [user guide](user-guide.md) shows the actual application screenshots and usage. The working interface uses a light Clinical palette, native input controls, sharp Windows display scaling, and scrollable pages for smaller windows. Its form/queue/verification/history/archive workflows have native integration tests in addition to the core algorithm and storage tests.
+The selected Clinical interface has now been implemented in Python/Tkinter with the four separate workflow tabs. The [user guide](user-guide.md) shows the actual application screenshots and usage. The working interface uses the approved **dark** Clinical palette, rounded cards and controls, outline tab icons, sharp Windows display scaling, and scrollable pages for smaller windows. The [theme notes](clinical-theme.md) specify the exact preview colors. Its form/queue/verification/history/archive workflows have native integration tests in addition to the core algorithm and storage tests.

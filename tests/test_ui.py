@@ -5,6 +5,8 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
+import subprocess
+import sys
 
 try:
     import tkinter as tk
@@ -159,6 +161,14 @@ class UITests(unittest.TestCase):
             self.assertEqual(reopened.pending_count, 1)
         finally:
             reopened.close()
+
+    def test_visible_window_remains_responsive(self):
+        result = subprocess.run(
+            [sys.executable, str(Path(__file__).with_name("visible_window_probe.py")),
+             str(Path(self.temporary.name) / "visible-probe")],
+            capture_output=True, text=True, timeout=20,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":
