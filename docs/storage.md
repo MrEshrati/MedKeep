@@ -14,7 +14,7 @@ The application permits at most 10,000 chain nodes (5,000 processed records), 5,
 - Before saving, the service copies the chain and queue using the custom linked structures. It changes that candidate, writes a temporary file in the same directory, flushes and synchronizes it, then atomically replaces the snapshot.
 - Only after replacement succeeds does the service switch its live state to the candidate. Failed enqueueing does not consume a request number. Failed processing does not lose a queued request or leave a half-created live pair.
 - The saved snapshot fingerprint is checked before and after serialization. Outside changes, deletion, or a newly appearing file block writes instead of being overwritten.
-- The UI will perform expensive operations in a single background job and keep all GUI operations on the main thread. No library queue is used to communicate with the worker.
+- The UI performs expensive operations in a single background job and keeps all GUI operations on the main thread. No library queue is used to communicate with the worker.
 
 ## Verification and recovery
 
@@ -22,7 +22,7 @@ The snapshot checksum catches accidental changes to pending requests, metadata, 
 
 A malformed snapshot fails to open and is preserved. A structurally readable chain with broken hashes can be inspected through its verification report, but cannot be changed, exported, or presented as verified history. The application never automatically resets the workspace or silently discards damaged records.
 
-To work separately, choose another directory with the application's `--data-dir` option once the launcher is available. For recovery, preserve the original file and use a known-good copy of the entire workspace. Do not edit hashes or remove nodes to silence a failure. Backups and archives contain the same sensitive content as the workspace.
+To work separately, choose another directory with the application's `--data-dir` option. For recovery, preserve the original file and use a known-good copy of the entire workspace. Do not edit hashes or remove nodes to silence a failure. Backups and archives contain the same sensitive content as the workspace.
 
 ## Daily archive
 

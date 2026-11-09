@@ -82,7 +82,9 @@ This document distinguishes the assignment's requirements from the owner's addit
 - Use synthetic records in tests and interface previews.
 - Cover empty and one-item states, FIFO order, paired node construction, reverse traversal, tampering, incomplete tails, persistence, and verified extraction with tests once implemented.
 
-## Details to resolve explicitly during implementation
+## Specification details resolved by the implementation
+
+The implemented encoding, verification rules, and trust boundaries are explained in [the algorithm notes](algorithms.md) and [storage notes](storage.md).
 
 1. **Hash serialization:** the brief describes combining hashes and content but does not define byte encoding, separators, or exact content/seal payloads. Document a deterministic, unambiguous encoding and recurrence before implementing verification.
 2. **Node direction:** links point to the previous node. References to the next node describe creation order; verification must not assume an unrequested second link.

@@ -11,3 +11,7 @@ data/
 archives/
 *.log
 DSAProject1_*.zip
+MedKeep-source.zip
+*.mkd
+.medkeep.lock
+.medkeep-*.tmp

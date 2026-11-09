@@ -33,4 +33,8 @@ The three concepts were checked in a browser for:
 - Horizontal overflow at 1024, 736, 375, and 320 pixel content widths.
 - Absence of script runtime errors.
 
-Desktop screenshots of all three concepts and a Clinical dark/narrow view were also visually inspected. These checks validate the design preview only. The application and its algorithms have not been implemented or tested yet.
+Desktop screenshots of all three concepts and a Clinical dark/narrow view were also visually inspected. These checks validated the original design preview only.
+
+## Completed Python application
+
+The selected Clinical interface has now been implemented in Python/Tkinter with the four separate workflow tabs. The [user guide](user-guide.md) shows the actual application screenshots and usage. The working interface uses a light Clinical palette, native input controls, sharp Windows display scaling, and scrollable pages for smaller windows. Its form/queue/verification/history/archive workflows have native integration tests in addition to the core algorithm and storage tests.
