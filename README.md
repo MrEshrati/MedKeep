@@ -2,7 +2,7 @@
 
 An offline Python desktop project for recording, queuing, verifying, and reviewing medical-record entries through a hash-linked chain.
 
-**Status:** requirements reviewed; interface selection pending. Application implementation will begin after the interface is selected.
+**Status:** Clinical interface selected. The hand-written containers, paired hash chain, and hand-written SHA-256 implementation are complete; persistence and the desktop interface are in development.
 
 ## Project requirements
 
@@ -21,26 +21,26 @@ Four separate tabs:
 
 Approval refers to integrity verification, not a clinical authorization system. Patient fields and UI layouts are proposed conveniences; the brief does not prescribe a medical-record schema.
 
-Three interface concepts are being reviewed: **Clinical**, **Workspace**, and **Ledger**. See [the interface design references](docs/interface-concepts.md). These previews are design demonstrations using synthetic data, not the Python application.
+The owner selected **Clinical**. See [the interface design references](docs/interface-concepts.md). The original previews use synthetic data; the working application is being built around Clinical.
 
 ## Implementation commitments
 
 - Python application that works without internet access.
 - Explicit node classes, references, traversals, and FIFO operations.
 - No `queue`, `collections.deque`, third-party linked lists, or built-in collections used as substitutes for the core chain or queue.
-- UI and hashing dependencies are separate from the data-structure implementation. The brief explicitly permits a ready-made SHA-256 function.
+- SHA-256 is implemented by hand, including a 16-node circular linked message schedule. No hashing library is used. See [the algorithm explanation](docs/algorithms.md).
 - Clear names, comments, readable formatting, algorithm explanations, and meaningful tests.
 - Documented limitations: hash chaining is tamper-evident under its trust assumptions; it is not encryption or an independently authenticated audit log.
 
 ## Development milestones
 
-1. Requirements and interface choice — in progress.
-2. Hand-written data structures and verification algorithms — planned.
+1. Requirements and interface choice — complete.
+2. Hand-written data structures and verification algorithms — complete; 22 core tests pass.
 3. Local persistence and daily archive workflow — planned.
 4. Selected tabbed desktop interface — planned.
 5. End-to-end checks, documentation, and submission packaging — planned.
 
-The README will gain installation, launch, usage, testing, architecture, and packaging instructions as the corresponding parts are implemented. No launch command is available yet.
+The application uses Python's standard library. Run the current core checks with `python -m unittest tests.test_core -v`. Desktop launch instructions will be added when the UI is complete.
 
 ## Course submission
 

@@ -69,12 +69,13 @@ This document distinguishes the assignment's requirements from the owner's addit
 - Commit and push after each major completed part to `https://github.com/MrEshrati/MedKeep`.
 - Maintain a suitable README and repository description throughout development.
 - Use the owner's existing Git identity for author and committer. Do not add an assistant contribution entry or co-author trailer.
+- Follow-up decision: implement the **Clinical** interface and a **hand-written hash function** for the optional hash objective.
 
 ## Proposed implementation decisions, not PDF requirements
 
 - Treat Approval as **hash-chain integrity verification**, not a doctor approval or role-based authorization workflow.
 - Use purpose-built Python node/chain/queue classes with explicit references. No `queue`, `deque`, third-party linked lists, list-as-queue, or dict-as-chain shortcuts.
-- UI and SHA-256 libraries do not replace the required data structures. No external network service is needed at runtime.
+- The chosen implementation writes SHA-256 itself rather than using the library option permitted by the PDF. No external network service is needed at runtime.
 - Suggested record fields: patient reference, author/clinician, visit date, title, and notes. The PDF specifies generic content, not a mandatory record schema.
 - Persist records locally and prepare daily archives; the brief does not specify a storage format, archive format, automatic scheduler, or file naming convention for archives.
 - Display a clear integrity failure rather than presenting affected records as verified.
@@ -92,10 +93,10 @@ This document distinguishes the assignment's requirements from the owner's addit
 
 ## Interface review
 
-The owner will choose one concept before the Python application is implemented:
+The owner selected Clinical before Python application implementation:
 
 - **Clinical:** horizontal tabs, a clear form, and an adjacent request preview.
 - **Workspace:** vertical tabs with a focused central editor and a quieter reading layout.
 - **Ledger:** compact horizontal tabs and a denser records-oriented workbench.
 
-All concepts preserve the same four workflows and use demonstration data only. Selection is pending.
+All original concepts preserve the same four workflows and use demonstration data only. Clinical is the implementation reference.

@@ -1,6 +1,6 @@
 # Interface concepts
 
-**Decision pending:** the project owner will select an interface before Python application implementation begins. All screens below are design previews with synthetic content. Their demonstration interactions do not implement the project's chain, queue, hashing, persistence, or archive algorithms.
+**Selected: Clinical.** The project owner approved this concept before Python application implementation. All screens below are the original design previews with synthetic content. Their demonstration interactions do not implement the project's chain, queue, hashing, persistence, or archive algorithms.
 
 All concepts separate **Create**, **Approval**, **Queue**, and **History**. Approval means integrity verification. History is gated behind that verification in the preview. The proposed fields are conveniences rather than fields required by the PDF.
 
