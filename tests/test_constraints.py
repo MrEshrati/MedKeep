@@ -1,5 +1,3 @@
-"""Protect the explicit assignment constraints against accidental shortcuts."""
-
 import ast
 from pathlib import Path
 import unittest

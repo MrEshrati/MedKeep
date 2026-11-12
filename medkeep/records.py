@@ -1,5 +1,3 @@
-"""Validated record values and an explicit length-prefixed binary encoding."""
-
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -13,29 +11,27 @@ class DecodeError(ValueError):
     pass
 
 
-def encode_text(value: str) -> bytes:
+def encode_text(value: str):
     encoded = value.encode("utf-8")
     return len(encoded).to_bytes(4, "big") + encoded
 
 
 class Reader:
-    """A bounded cursor over immutable bytes, not an object deserializer."""
-
-    def __init__(self, data: bytes) -> None:
+    def __init__(self, data: bytes):
         self.data = data
         self.offset = 0
 
-    def take(self, size: int) -> bytes:
+    def take(self, size: int):
         if size < 0 or self.offset + size > len(self.data):
             raise DecodeError("The workspace is truncated or has an invalid field length.")
         value = self.data[self.offset:self.offset + size]
         self.offset += size
         return value
 
-    def number(self, size: int = 8) -> int:
+    def number(self, size: int = 8):
         return int.from_bytes(self.take(size), "big")
 
-    def text(self, maximum: int) -> str:
+    def text(self, maximum: int):
         size = self.number(4)
         if size > maximum * 4:
             raise DecodeError("A text field exceeds the supported length.")
@@ -47,12 +43,12 @@ class Reader:
             raise DecodeError("A text field exceeds the supported length.")
         return value
 
-    def finish(self) -> None:
+    def finish(self):
         if self.offset != len(self.data):
             raise DecodeError("The workspace contains unexpected trailing data.")
 
 
-def validate_day(value: str) -> str:
+def validate_day(value: str):
     try:
         parsed = date.fromisoformat(value)
         if parsed.isoformat() != value:
@@ -62,7 +58,7 @@ def validate_day(value: str) -> str:
     return value
 
 
-def _timestamp(value: str, optional: bool = False) -> str:
+def _timestamp(value: str, optional: bool = False):
     if optional and value == "":
         return value
     try:
@@ -74,7 +70,7 @@ def _timestamp(value: str, optional: bool = False) -> str:
     return value
 
 
-def _text(value: str, label: str, limit: int, multiline: bool = False) -> str:
+def _text(value: str, label: str, limit: int, multiline: bool = False):
     if not isinstance(value, str):
         raise ValidationError(f"{label} must be text.")
     value = value.replace("\r\n", "\n").replace("\r", "\n").strip()
@@ -87,12 +83,10 @@ def _text(value: str, label: str, limit: int, multiline: bool = False) -> str:
 
 
 class MedicalRecord:
-    """An immutable value; pending requests have an empty recorded_at field."""
-
     __slots__ = ("request_id", "patient", "author", "visit_date", "title", "notes", "submitted_at", "recorded_at", "_frozen")
 
     def __init__(self, request_id: int, patient: str, author: str, visit_date: str,
-                 title: str, notes: str, submitted_at: str, recorded_at: str = "") -> None:
+                 title: str, notes: str, submitted_at: str, recorded_at: str = ""):
         if type(request_id) is not int or not 1 <= request_id < (1 << 63):
             raise ValidationError("Request number is outside the supported range.")
         self.request_id = request_id
@@ -105,20 +99,21 @@ class MedicalRecord:
         self.recorded_at = _timestamp(recorded_at, optional=True)
         self._frozen = True
 
-    def __setattr__(self, name: str, value: object) -> None:
+    def __setattr__(self, name: str, value: object):
         if getattr(self, "_frozen", False):
             raise AttributeError("Records are immutable. Create a new request for a correction.")
         object.__setattr__(self, name, value)
 
-    @property
-    def reference(self) -> str:
+    def reference(self):
         return f"REQ-{self.request_id:06d}"
 
-    def recorded(self, timestamp: str) -> MedicalRecord:
+    reference = property(reference)
+
+    def recorded(self, timestamp: str):
         return MedicalRecord(self.request_id, self.patient, self.author, self.visit_date,
                              self.title, self.notes, self.submitted_at, timestamp)
 
-    def to_bytes(self) -> bytes:
+    def to_bytes(self):
         return (
             b"MKR1" + self.request_id.to_bytes(8, "big")
             + encode_text(self.patient) + encode_text(self.author) + encode_text(self.visit_date)
@@ -126,8 +121,7 @@ class MedicalRecord:
             + encode_text(self.submitted_at) + encode_text(self.recorded_at)
         )
 
-    @classmethod
-    def from_bytes(cls, data: bytes) -> MedicalRecord:
+    def from_bytes(cls, data: bytes):
         reader = Reader(data)
         if reader.take(4) != b"MKR1":
             raise DecodeError("Unknown record format.")
@@ -140,3 +134,5 @@ class MedicalRecord:
         if record.to_bytes() != data:
             raise DecodeError("A record uses a noncanonical encoding.")
         return record
+
+    from_bytes = classmethod(from_bytes)

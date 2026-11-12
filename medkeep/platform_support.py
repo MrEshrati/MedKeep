@@ -1,10 +1,7 @@
-"""Small operating-system presentation helpers; independent of domain structures."""
-
 import sys
 
 
-def enable_dpi_awareness() -> None:
-    """Avoid blurry, OS-scaled Windows rendering; call before creating Tk."""
+def enable_dpi_awareness():
     if sys.platform == "win32":
         import ctypes
         try:
@@ -13,8 +10,7 @@ def enable_dpi_awareness() -> None:
             pass
 
 
-def dark_titlebar(root) -> None:
-    """Ask Windows to use dark system chrome around the dark Clinical surface."""
+def dark_titlebar(root):
     if sys.platform == "win32":
         import ctypes
         try:

@@ -1,5 +1,3 @@
-"""Bounded binary snapshots, exclusive workspace leases and atomic replacement."""
-
 from __future__ import annotations
 
 import os
@@ -29,13 +27,13 @@ class WorkspaceBusy(StorageError):
 
 
 class State:
-    def __init__(self) -> None:
+    def __init__(self):
         self.chain = HashChain()
         self.queue: LinkedQueue[MedicalRecord] = LinkedQueue()
         self.next_request_id = 1
         self.revision = 0
 
-    def copy(self) -> State:
+    def copy(self):
         result = State()
         result.chain = self.chain.copy()
         result.queue = self.queue.copy()
@@ -43,7 +41,7 @@ class State:
         result.revision = self.revision + 1
         return result
 
-    def validate_queue(self) -> None:
+    def validate_queue(self):
         if len(self.queue) > MAX_PENDING:
             raise DecodeError("The pending queue exceeds its 5,000-request limit.")
         expected = self.chain.record_count + 1
@@ -55,7 +53,7 @@ class State:
             raise DecodeError("The next request number does not match the saved queue and chain.")
 
 
-def encode_state(state: State) -> bytes:
+def encode_state(state: State):
     state.validate_queue()
     chunks: LinkedSequence[bytes] = LinkedSequence()
     chunks.append(MAGIC)
@@ -78,7 +76,7 @@ def encode_state(state: State) -> bytes:
     return body + bytes.fromhex(sha256(body))
 
 
-def decode_state(data: bytes) -> State:
+def decode_state(data: bytes):
     if len(data) > MAX_FILE_BYTES or len(data) < 72:
         raise DecodeError("The workspace file has an invalid size.")
     body, checksum = data[:-32], data[-32:]
@@ -120,9 +118,7 @@ def decode_state(data: bytes) -> State:
 
 
 class WorkspaceLease:
-    """One cooperating process per local workspace, enforced by the OS."""
-
-    def __init__(self, directory: Path) -> None:
+    def __init__(self, directory: Path):
         self._file = (directory / ".medkeep.lock").open("a+b")
         self._file.seek(0, os.SEEK_END)
         if self._file.tell() == 0:
@@ -140,7 +136,7 @@ class WorkspaceLease:
             self._file.close()
             raise WorkspaceBusy("This workspace is already open in another MedKeep window.") from None
 
-    def close(self) -> None:
+    def close(self):
         if self._file.closed:
             return
         self._file.seek(0)
@@ -156,24 +152,24 @@ class WorkspaceLease:
 
 
 class WorkspaceStore:
-    def __init__(self, directory: Path) -> None:
+    def __init__(self, directory: Path):
         self.directory = directory.resolve()
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.path = self.directory / "medkeep.mkd"
         self._lease = WorkspaceLease(self.directory)
         self._fingerprint: str | None = None
 
-    def close(self) -> None:
+    def close(self):
         self._lease.close()
 
-    def _read(self) -> bytes:
+    def _read(self):
         with self.path.open("rb") as stream:
             data = stream.read(MAX_FILE_BYTES + 1)
         if len(data) > MAX_FILE_BYTES:
             raise StorageError("The workspace exceeds the 32 MiB supported file size.")
         return data
 
-    def load(self) -> State:
+    def load(self):
         if not self.path.exists():
             return State()
         data = self._read()
@@ -181,7 +177,7 @@ class WorkspaceStore:
         self._fingerprint = data[-32:].hex()
         return state
 
-    def ensure_current(self) -> None:
+    def ensure_current(self):
         if self._fingerprint is None:
             if self.path.exists():
                 raise StorageConflict("A workspace appeared on disk. Restart MedKeep before continuing.")
@@ -193,7 +189,7 @@ class WorkspaceStore:
         if len(data) < 32 or data[-32:].hex() != self._fingerprint or sha256(data[:-32]) != self._fingerprint:
             raise StorageConflict("The workspace changed outside MedKeep. No files were overwritten; restart to inspect it.")
 
-    def save(self, state: State) -> None:
+    def save(self, state: State):
         self.ensure_current()
         data = encode_state(state)
         temporary: Path | None = None

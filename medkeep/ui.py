@@ -1,5 +1,3 @@
-"""The Clinical desktop interface. Tk is used only for presentation, not storage."""
-
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -36,8 +34,6 @@ def card(parent, *, bg=PANEL, padding=22):
 
 
 class ScrollPage(ttk.Frame):
-    """A page expands to the available width and scrolls on smaller displays."""
-
     def __init__(self, parent, scale=1):
         super().__init__(parent, style="Page.TFrame")
         self.canvas = tk.Canvas(self, bg=BG, highlightthickness=0, borderwidth=0)
@@ -64,8 +60,6 @@ class ScrollPage(ttk.Frame):
 
 
 class _Job:
-    """One worker's result slot. There is no library queue between UI and worker."""
-
     def __init__(self, action: Callable):
         self.result = None
         self.error: Exception | None = None
@@ -147,9 +141,10 @@ class MedKeepApp:
         root.update_idletasks()
         dark_titlebar(root)
 
-    @property
     def busy(self):
         return self._job is not None
+
+    busy = property(busy)
 
     def px(self, value):
         return round(value * self.display_scale)

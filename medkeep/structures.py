@@ -1,15 +1,11 @@
-"""Hand-written linked containers. No built-in collection stores their items."""
-
 from __future__ import annotations
 
-from typing import Generic, Iterator, TypeVar
+from typing import Generic, TypeVar
 
 T = TypeVar("T")
 
 
 class Link(Generic[T]):
-    """One forward link; a Python reference is the node's address."""
-
     __slots__ = ("value", "next")
 
     def __init__(self, value=None):
@@ -18,14 +14,12 @@ class Link(Generic[T]):
 
 
 class LinkedSequence(Generic[T]):
-    """Append-only singly linked sequence used for verification/history results."""
-
-    def __init__(self) -> None:
+    def __init__(self):
         self._head = None
         self._tail = None
         self._size = 0
 
-    def append(self, value: T) -> None:
+    def append(self, value: T):
         new_node = Link()
         new_node.value = value
         if self._tail is None:
@@ -35,10 +29,10 @@ class LinkedSequence(Generic[T]):
         self._tail = new_node
         self._size += 1
 
-    def __len__(self) -> int:
+    def __len__(self):
         return self._size
 
-    def __iter__(self) -> Iterator[T]:
+    def __iter__(self):
         current_node = self._head
         while current_node is not None:
             yield current_node.value
@@ -46,14 +40,12 @@ class LinkedSequence(Generic[T]):
 
 
 class LinkedQueue(Generic[T]):
-    """FIFO queue with explicit front/rear references and O(1) operations."""
-
-    def __init__(self) -> None:
+    def __init__(self):
         self._front = None
         self._rear = None
         self._size = 0
 
-    def enqueue(self, value: T) -> None:
+    def enqueue(self, value: T):
         new_node = Link()
         new_node.value = value
         if self._rear is None:
@@ -63,12 +55,12 @@ class LinkedQueue(Generic[T]):
         self._rear = new_node
         self._size += 1
 
-    def peek(self) -> T:
+    def peek(self):
         if self._front is None:
             raise IndexError("The request queue is empty.")
         return self._front.value
 
-    def dequeue(self) -> T:
+    def dequeue(self):
         if self._front is None:
             raise IndexError("The request queue is empty.")
         front_node = self._front
@@ -79,16 +71,16 @@ class LinkedQueue(Generic[T]):
             self._rear = None
         return front_node.value
 
-    def copy(self) -> LinkedQueue[T]:
+    def copy(self):
         copied_queue = LinkedQueue()
         for value in self:
             copied_queue.enqueue(value)
         return copied_queue
 
-    def __len__(self) -> int:
+    def __len__(self):
         return self._size
 
-    def __iter__(self) -> Iterator[T]:
+    def __iter__(self):
         current_node = self._front
         while current_node is not None:
             yield current_node.value

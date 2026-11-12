@@ -1,5 +1,3 @@
-"""Build a clean source ZIP, excluding workspace data and generated files."""
-
 from __future__ import annotations
 
 import argparse
@@ -11,7 +9,7 @@ import zipfile
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
-def _identity_part(value: str | None, label: str) -> str:
+def _identity_part(value: str | None, label: str):
     if not value or len(value) > 40 or not all(char.isalnum() for char in value):
         raise ValueError(f"{label} must contain 1–40 letters or numbers, without spaces or path separators.")
     return value
@@ -19,7 +17,7 @@ def _identity_part(value: str | None, label: str) -> str:
 
 def create_package(output_dir: Path, *, project_root: Path = PROJECT_ROOT, source: bool = False,
                    first_name: str | None = None, last_name: str | None = None,
-                   student_number: str | None = None) -> Path:
+                   student_number: str | None = None):
     if source:
         filename = "MedKeep-source.zip"
     else:
@@ -62,7 +60,7 @@ def create_package(output_dir: Path, *, project_root: Path = PROJECT_ROOT, sourc
     return destination
 
 
-def main() -> int:
+def main():
     parser = argparse.ArgumentParser(description="Package MedKeep source without patient data or local settings")
     parser.add_argument("--source", action="store_true", help="create MedKeep-source.zip without student identity")
     parser.add_argument("--first-name")

@@ -1,9 +1,6 @@
-"""The assignment's backward-linked, alternating content/seal chain."""
-
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Iterator
 
 from .hashing import sha256
 from .records import DecodeError, MedicalRecord
@@ -26,12 +23,7 @@ class ChainNode:
         self.link_hash = link_hash
 
 
-def digest_node(node: ChainNode) -> str:
-    """The NEXT node stores this digest; all boundaries are explicit.
-
-    H(domain || index:u64 || kind:u8 || inherited_hash:32 bytes ||
-      payload_length:u64 || payload). Genesis inherits 32 zero bytes.
-    """
+def digest_node(node: ChainNode):
     data = b"MedKeep/node/v1\x00"
     data += node.index.to_bytes(8, "big")
     if node.kind == CONTENT:
@@ -47,7 +39,7 @@ def digest_node(node: ChainNode) -> str:
 class CheckStep:
     __slots__ = ("index", "kind", "stored", "calculated", "ok")
 
-    def __init__(self, index: int, kind: str, stored: str, calculated: str, ok: bool) -> None:
+    def __init__(self, index: int, kind: str, stored: str, calculated: str, ok: bool):
         self.index = index
         self.kind = kind
         self.stored = stored
@@ -56,7 +48,7 @@ class CheckStep:
 
 
 class VerificationReport:
-    def __init__(self) -> None:
+    def __init__(self):
         self.ok = False
         self.message = "Not checked."
         self.failure_node: int | None = None
@@ -65,7 +57,7 @@ class VerificationReport:
         self.checked_at = datetime.now().astimezone().isoformat(timespec="seconds")
         self.ignored_tail_content = False
 
-    def fail(self, message: str, index: int | None = None) -> VerificationReport:
+    def fail(self, message: str, index: int | None = None):
         self.ok = False
         self.message = message
         self.failure_node = index
@@ -74,18 +66,16 @@ class VerificationReport:
 
 
 class HashChain:
-    """Singly linked list: the tail points toward earlier nodes, never forward."""
-
-    def __init__(self) -> None:
+    def __init__(self):
         self.tail = ChainNode()
         self.node_count = 1
 
-    @property
-    def record_count(self) -> int:
+    def record_count(self):
         return self.node_count // 2
 
-    def nodes(self) -> Iterator[ChainNode]:
-        """Bounded traversal also prevents malformed cycles from hanging a reader."""
+    record_count = property(record_count)
+
+    def nodes(self):
         current = self.tail
         for _ in range(self.node_count):
             if current is None:
@@ -95,7 +85,7 @@ class HashChain:
         if current is not None:
             raise DecodeError("The chain contains a cycle or excess nodes.")
 
-    def append(self, record: MedicalRecord) -> None:
+    def append(self, record: MedicalRecord):
         if not record.recorded_at:
             raise ValueError("Only processed requests can enter the record chain.")
         if record.request_id != self.record_count + 1:
@@ -129,7 +119,7 @@ class HashChain:
         self.tail = new_seal
         self.node_count += nodes_to_add
 
-    def copy(self) -> HashChain:
+    def copy(self):
         copied_chain = HashChain()
         newer_node = None
         for node in self.nodes():
@@ -146,7 +136,7 @@ class HashChain:
         copied_chain.node_count = self.node_count
         return copied_chain
 
-    def verify(self) -> VerificationReport:
+    def verify(self):
         report = VerificationReport()
         if not 1 <= self.node_count <= MAX_NODES:
             return report.fail("The declared chain length is invalid.")

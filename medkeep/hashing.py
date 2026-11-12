@@ -1,11 +1,3 @@
-"""SHA-256 written from the FIPS 180-4 specification, without hashing libraries.
-
-Padding, scheduling, rotations, compression and digest assembly are implemented
-here. The schedule uses a hand-written 16-node circular linked buffer, rather
-than a ready-made array/list. Constants are immutable raw bytes from the standard.
-This educational implementation is not a FIPS-validated cryptographic module.
-"""
-
 from __future__ import annotations
 
 MASK = 0xFFFFFFFF
@@ -21,7 +13,7 @@ ROUND_CONSTANTS = bytes.fromhex(
 )
 
 
-def rotate_right(word: int, count: int) -> int:
+def rotate_right(word: int, count: int):
     return ((word >> count) | (word << (32 - count))) & MASK
 
 
@@ -34,9 +26,7 @@ class _Word:
 
 
 class _Schedule:
-    """A moving window W[t-16]..W[t-1] in sixteen circular nodes."""
-
-    def __init__(self, block: bytes) -> None:
+    def __init__(self, block: bytes):
         head = _Word()
         head.value = int.from_bytes(block[:4], "big")
         prev_node = head
@@ -57,7 +47,7 @@ class _Schedule:
             self.lag2 = self.lag2.next
         self.round = 0
 
-    def take(self) -> int:
+    def take(self):
         if self.round >= 16:
             x = self.lag15.value
             y = self.lag2.value
@@ -76,9 +66,7 @@ class _Schedule:
 
 
 class HandmadeSHA256:
-    """Incremental byte-oriented SHA-256 with non-destructive digest()."""
-
-    def __init__(self, data: bytes = b"") -> None:
+    def __init__(self, data: bytes = b""):
         self._h0 = 0x6A09E667
         self._h1 = 0xBB67AE85
         self._h2 = 0x3C6EF372
@@ -91,7 +79,7 @@ class HandmadeSHA256:
         self._length = 0
         self.update(data)
 
-    def update(self, data: bytes) -> HandmadeSHA256:
+    def update(self, data: bytes):
         if not isinstance(data, bytes):
             raise TypeError("SHA-256 input must be bytes; encode text as UTF-8 first.")
         if self._length + len(data) >= (1 << 61):
@@ -111,7 +99,7 @@ class HandmadeSHA256:
         self._pending += data[offset:]
         return self
 
-    def copy(self) -> HandmadeSHA256:
+    def copy(self):
         result = HandmadeSHA256()
         result._h0, result._h1 = self._h0, self._h1
         result._h2, result._h3 = self._h2, self._h3
@@ -121,7 +109,7 @@ class HandmadeSHA256:
         result._length = self._length
         return result
 
-    def digest(self) -> bytes:
+    def digest(self):
         result = self.copy()
         padding = b"\x80" + b"\x00" * ((55 - self._length) % 64)
         result.update(padding + (self._length * 8).to_bytes(8, "big"))
@@ -132,10 +120,10 @@ class HandmadeSHA256:
             + result._h6.to_bytes(4, "big") + result._h7.to_bytes(4, "big")
         )
 
-    def hexdigest(self) -> str:
+    def hexdigest(self):
         return self.digest().hex()
 
-    def _compress(self, block: bytes) -> None:
+    def _compress(self, block: bytes):
         schedule = _Schedule(block)
         a, b, c, d = self._h0, self._h1, self._h2, self._h3
         e, f, g, h = self._h4, self._h5, self._h6, self._h7
@@ -159,6 +147,5 @@ class HandmadeSHA256:
         self._h7 = (self._h7 + h) & MASK
 
 
-def sha256(data: bytes) -> str:
-    """Return a 64-character lowercase digest using only our implementation."""
+def sha256(data: bytes):
     return HandmadeSHA256(data).hexdigest()

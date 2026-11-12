@@ -1,5 +1,3 @@
-"""Published SHA-256 vectors plus data-structure and chain regressions."""
-
 import unittest
 
 from medkeep.chain import CONTENT, HashChain, digest_node

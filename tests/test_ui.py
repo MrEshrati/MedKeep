@@ -1,5 +1,3 @@
-"""Native Tk integration checks. Skipped only when no graphical display exists."""
-
 from datetime import date
 from pathlib import Path
 import tempfile
@@ -19,7 +17,6 @@ from medkeep.platform_support import enable_dpi_awareness
 enable_dpi_awareness()
 
 
-@unittest.skipIf(tk is None, "Tkinter is not installed")
 class UITests(unittest.TestCase):
     def setUp(self):
         try:
@@ -175,6 +172,9 @@ class UITests(unittest.TestCase):
             capture_output=True, text=True, timeout=20,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+
+
+UITests = unittest.skipIf(tk is None, "Tkinter is not installed")(UITests)
 
 
 if __name__ == "__main__":

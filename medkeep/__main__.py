@@ -1,13 +1,9 @@
-"""Run with python -m medkeep [--data-dir PATH]."""
-
-from __future__ import annotations
-
 import argparse
 from pathlib import Path
 import sys
 
 
-def main() -> int:
+def main():
     parser = argparse.ArgumentParser(description="MedKeep offline medical-record desktop application")
     parser.add_argument("--data-dir", type=Path, default=Path(__file__).resolve().parents[1] / "data",
                         help="local workspace directory (default: data beside the application)")

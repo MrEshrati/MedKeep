@@ -1,5 +1,3 @@
-"""Transactional application operations, independent of the graphical interface."""
-
 from __future__ import annotations
 
 from datetime import datetime
@@ -17,14 +15,12 @@ class IntegrityError(ValueError):
     pass
 
 
-def local_timestamp() -> str:
+def local_timestamp():
     return datetime.now().astimezone().isoformat(timespec="seconds")
 
 
 class MedKeepService:
-    """A UI calls one operation at a time; no GUI objects cross this boundary."""
-
-    def __init__(self, directory: Path, clock: Callable[[], str] = local_timestamp) -> None:
+    def __init__(self, directory: Path, clock: Callable[[], str] = local_timestamp):
         self.store = WorkspaceStore(directory)
         self.clock = clock
         self.report: VerificationReport | None = None
@@ -34,32 +30,36 @@ class MedKeepService:
             self.store.close()
             raise
 
-    def close(self) -> None:
+    def close(self):
         self.store.close()
 
-    @property
-    def pending_count(self) -> int:
+    def pending_count(self):
         return len(self._state.queue)
 
-    @property
-    def record_count(self) -> int:
+    pending_count = property(pending_count)
+
+    def record_count(self):
         return self._state.chain.record_count
 
-    @property
-    def node_count(self) -> int:
+    record_count = property(record_count)
+
+    def node_count(self):
         return self._state.chain.node_count
 
-    @property
-    def head_digest(self) -> str:
+    node_count = property(node_count)
+
+    def head_digest(self):
         return self._state.chain.tail.link_hash
 
-    def pending(self) -> LinkedSequence[MedicalRecord]:
+    head_digest = property(head_digest)
+
+    def pending(self):
         result: LinkedSequence[MedicalRecord] = LinkedSequence()
         for record in self._state.queue:
             result.append(record)
         return result
 
-    def verify(self) -> VerificationReport:
+    def verify(self):
         try:
             self.store.ensure_current()
             self._state.validate_queue()
@@ -69,17 +69,17 @@ class MedKeepService:
         self.report = self._state.chain.verify()
         return self.report
 
-    def _require_integrity(self) -> None:
+    def _require_integrity(self):
         report = self.verify()
         if not report.ok:
             raise IntegrityError(report.message)
 
-    def _commit(self, candidate: State) -> None:
+    def _commit(self, candidate: State):
         self.store.save(candidate)
         self._state = candidate
         self.report = None
 
-    def enqueue(self, patient: str, author: str, visit_date: str, title: str, notes: str) -> MedicalRecord:
+    def enqueue(self, patient: str, author: str, visit_date: str, title: str, notes: str):
         request = MedicalRecord(self._state.next_request_id, patient, author, visit_date,
                                 title, notes, self.clock())
         if self.pending_count >= MAX_PENDING:
@@ -91,7 +91,7 @@ class MedKeepService:
         self._commit(candidate)
         return request
 
-    def process_next(self) -> MedicalRecord:
+    def process_next(self):
         if not self.pending_count:
             raise IndexError("There are no pending requests to process.")
         self._require_integrity()
@@ -102,13 +102,13 @@ class MedKeepService:
         self._commit(candidate)
         return processed
 
-    def history(self) -> LinkedSequence[MedicalRecord]:
+    def history(self):
         if self.report is None or not self.report.ok:
             raise IntegrityError("Verify the chain in Approval before opening record history.")
         self._require_integrity()
         return self.report.records
 
-    def archive(self, day: str) -> Path:
+    def archive(self, day: str):
         validate_day(day)
         self._require_integrity()
         selected: LinkedSequence[MedicalRecord] = LinkedSequence()

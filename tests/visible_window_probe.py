@@ -1,5 +1,3 @@
-"""A separate process lets the test bound native redraw-loop failures."""
-
 from pathlib import Path
 import sys
 import tkinter as tk

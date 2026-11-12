@@ -1,11 +1,3 @@
-"""The approved dark Clinical palette and small, dependency-free UI assets.
-
-Raw PNG buffers are presentation assets only. Record collections, the request
-queue, the chain and the hash schedule remain in their hand-written containers.
-"""
-
-from __future__ import annotations
-
 from functools import lru_cache
 import math
 import tkinter as tk
@@ -38,11 +30,9 @@ def _png(width, height, pixels):
 
 
 def rounded_image(master, fill, *, radius=8, border=None, center=(4, 4)):
-    """Antialiased nine-slice skin, generated with Python and Tk only."""
     return tk.PhotoImage(master=master, data=_rounded_png(fill, radius, border, center), format="png")
 
 
-@lru_cache(maxsize=32)
 def _rounded_png(fill, radius, border, center):
     center_width, center_height = center
     width, height = radius * 2 + center_width, radius * 2 + center_height
@@ -75,6 +65,9 @@ def _rounded_png(fill, radius, border, center):
     return _png(width, height, b"".join(top_rows) + middle_row * center_height + b"".join(reversed(top_rows)))
 
 
+_rounded_png = lru_cache(maxsize=32)(_rounded_png)
+
+
 def _distance(x, y, ax, ay, bx, by):
     dx, dy = bx - ax, by - ay
     divisor = dx * dx + dy * dy
@@ -83,7 +76,6 @@ def _distance(x, y, ax, ay, bx, by):
 
 
 def icon_image(master, name, color=SECONDARY_TEXT, size=16):
-    """Small outline icons matching the preview's document/shield/list/history."""
     red, green, blue = _rgb(color)
     mask = _icon_mask(name, size)
     raw = bytearray()
@@ -94,7 +86,6 @@ def icon_image(master, name, color=SECONDARY_TEXT, size=16):
     return tk.PhotoImage(master=master, data=_png(size, size, raw), format="png")
 
 
-@lru_cache(maxsize=32)
 def _icon_mask(name, size):
     if name == "create":
         paths = (((8, 3), (15, 3), (20, 8), (20, 21), (8, 21), (8, 17)),
@@ -134,9 +125,10 @@ def _icon_mask(name, size):
     return bytes(mask)
 
 
-class RoundedPanel(tk.Frame):
-    """A normal Tk frame with an antialiased rounded background behind children."""
+_icon_mask = lru_cache(maxsize=32)(_icon_mask)
 
+
+class RoundedPanel(tk.Frame):
     def __init__(self, parent, *, bg=SURFACE, padding=22, radius=12, border=BORDER):
         scale = max(1.0, parent.winfo_fpixels("1i") / 96)
         px, py = padding if isinstance(padding, tuple) else (padding, padding)
