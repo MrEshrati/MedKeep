@@ -13,8 +13,6 @@ MAX_NODES = 10000
 
 
 class ChainNode:
-    __slots__ = ("index", "kind", "payload", "previous", "link_hash")
-
     def __init__(self, index=1, kind=CONTENT, payload=b"", previous=None, link_hash=ZERO_HASH):
         self.index = index
         self.kind = kind
@@ -37,8 +35,6 @@ def digest_node(node: ChainNode):
 
 
 class CheckStep:
-    __slots__ = ("index", "kind", "stored", "calculated", "ok")
-
     def __init__(self, index: int, kind: str, stored: str, calculated: str, ok: bool):
         self.index = index
         self.kind = kind

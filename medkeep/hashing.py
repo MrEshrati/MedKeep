@@ -18,8 +18,6 @@ def rotate_right(word: int, count: int):
 
 
 class _Word:
-    __slots__ = ("value", "next")
-
     def __init__(self):
         self.value = 0
         self.next = None

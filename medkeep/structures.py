@@ -6,8 +6,6 @@ T = TypeVar("T")
 
 
 class Link(Generic[T]):
-    __slots__ = ("value", "next")
-
     def __init__(self, value=None):
         self.value = value
         self.next = None

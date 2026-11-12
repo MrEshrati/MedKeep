@@ -83,8 +83,6 @@ def _text(value: str, label: str, limit: int, multiline: bool = False):
 
 
 class MedicalRecord:
-    __slots__ = ("request_id", "patient", "author", "visit_date", "title", "notes", "submitted_at", "recorded_at", "_frozen")
-
     def __init__(self, request_id: int, patient: str, author: str, visit_date: str,
                  title: str, notes: str, submitted_at: str, recorded_at: str = ""):
         if type(request_id) is not int or not 1 <= request_id < (1 << 63):
