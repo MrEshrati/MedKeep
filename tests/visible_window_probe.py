@@ -18,7 +18,17 @@ def main():
     root.withdraw()
     try:
         app = MedKeepApp(root, service)
-        root.after(250, app.close)
+        pages = iter((app.approval_page, app.queue_page, app.history_page, app.create_page))
+
+        def show_next_tab():
+            page = next(pages, None)
+            if page is None:
+                app.close()
+                return
+            app.tabs.select(page)
+            root.after(100, show_next_tab)
+
+        root.after(100, show_next_tab)
         root.deiconify()
         root.mainloop()
         if not app.closed:

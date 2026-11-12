@@ -60,6 +60,7 @@ class UITests(unittest.TestCase):
 
     def test_four_tabs_and_live_preview(self):
         self.assertEqual(len(self.app.tabs.tabs()), 4)
+        self.assertTrue(all(not feedback.winfo_manager() for feedback in self.app._status_labels))
         self.fill()
         self.assertEqual(self.app.preview_patient.get(), "PT-1048")
         self.assertEqual(self.app.preview_title.get(), "Follow-up consultation")
@@ -97,6 +98,8 @@ class UITests(unittest.TestCase):
         self.assertTrue(self.app.last_archive.exists())
 
     def test_validation_retains_draft(self):
+        from medkeep.appearance import DANGER
+
         self.fill()
         self.app.visit_date.set("not a date")
         self.app.enqueue()
@@ -105,6 +108,9 @@ class UITests(unittest.TestCase):
         self.assertEqual(self.service.pending_count, 0)
         self.assertEqual(self.app.patient.get(), "PT-1048")
         self.assertIn("YYYY-MM-DD", self.app.status.get())
+        feedback = self.app._status_labels[0]
+        self.assertEqual(feedback.winfo_manager(), "grid")
+        self.assertEqual(feedback["foreground"], DANGER)
 
     def test_history_gate_and_filter(self):
         self.app.tabs.select(self.app.history_page)

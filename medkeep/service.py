@@ -75,7 +75,6 @@ class MedKeepService:
             raise IntegrityError(report.message)
 
     def _commit(self, candidate: State) -> None:
-        # Save first; a failed write never removes a live queued request.
         self.store.save(candidate)
         self._state = candidate
         self.report = None
@@ -106,7 +105,6 @@ class MedKeepService:
     def history(self) -> LinkedSequence[MedicalRecord]:
         if self.report is None or not self.report.ok:
             raise IntegrityError("Verify the chain in Approval before opening record history.")
-        # Reading again verifies current contents, not a stale 'approved' badge.
         self._require_integrity()
         return self.report.records
 
@@ -136,7 +134,6 @@ class MedKeepService:
         directory.mkdir(exist_ok=True, mode=0o700)
         timestamp = datetime.now().astimezone().strftime("%Y%m%dT%H%M%S%f")
         destination = directory / f"medkeep-{day}-{timestamp}.txt"
-        # Exclusive creation prevents an existing archive from being overwritten.
         descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         try:
             with os.fdopen(descriptor, "wb") as stream:

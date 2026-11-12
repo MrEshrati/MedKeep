@@ -6,6 +6,7 @@ queue, the chain and the hash schedule remain in their hand-written containers.
 
 from __future__ import annotations
 
+from functools import lru_cache
 import math
 import tkinter as tk
 import zlib
@@ -31,43 +32,47 @@ def _chunk(kind, payload):
 
 
 def _png(width, height, pixels):
-    # PNG's CRC is a file-format checksum, unrelated to the project's SHA-256.
     return (b"\x89PNG\r\n\x1a\n"
             + _chunk(b"IHDR", width.to_bytes(4, "big") + height.to_bytes(4, "big") + b"\x08\x06\x00\x00\x00")
             + _chunk(b"IDAT", zlib.compress(bytes(pixels))) + _chunk(b"IEND", b""))
 
 
-def _inside(x, y, width, height, radius):
-    if x < 0 or y < 0 or x >= width or y >= height:
-        return False
-    cx = min(max(x, radius), width - radius)
-    cy = min(max(y, radius), height - radius)
-    return (x - cx) ** 2 + (y - cy) ** 2 <= radius ** 2
-
-
-def rounded_image(master, fill, *, radius=8, border=None):
+def rounded_image(master, fill, *, radius=8, border=None, center=(4, 4)):
     """Antialiased nine-slice skin, generated with Python and Tk only."""
-    width = height = radius * 2 + 4
+    return tk.PhotoImage(master=master, data=_rounded_png(fill, radius, border, center), format="png")
+
+
+@lru_cache(maxsize=32)
+def _rounded_png(fill, radius, border, center):
+    center_width, center_height = center
+    width, height = radius * 2 + center_width, radius * 2 + center_height
     red, green, blue = _rgb(fill)
     br, bg, bb = _rgb(border or fill)
-    raw = bytearray()
-    for y in range(height):
-        raw.append(0)
-        for x in range(width):
+    fill_pixel = bytes((red, green, blue, 255))
+    border_pixel = bytes((br, bg, bb, 255))
+    outer_radius_sq, inner_radius_sq = radius ** 2, (radius - 1) ** 2
+    top_rows = []
+    for y in range(radius):
+        corner = []
+        for x in range(radius):
             count = sr = sg = sb = 0
             for sy in range(4):
                 for sx in range(4):
-                    px, py = x + (sx + .5) / 4, y + (sy + .5) / 4
-                    if not _inside(px, py, width, height, radius):
+                    dx, dy = radius - x - (sx + .5) / 4, radius - y - (sy + .5) / 4
+                    distance_sq = dx * dx + dy * dy
+                    if distance_sq > outer_radius_sq:
                         continue
                     count += 1
-                    if border and not _inside(px - 1, py - 1, width - 2, height - 2, radius - 1):
+                    if distance_sq > inner_radius_sq:
                         sr, sg, sb = sr + br, sg + bg, sb + bb
                     else:
                         sr, sg, sb = sr + red, sg + green, sb + blue
-            raw.extend((sr // count if count else 0, sg // count if count else 0,
-                        sb // count if count else 0, round(count * 255 / 16)))
-    return tk.PhotoImage(master=master, data=_png(width, height, raw), format="png")
+            corner.append(bytes((sr // count, sg // count, sb // count, round(count * 255 / 16)))
+                          if count else b"\0\0\0\0")
+        edge = border_pixel if y == 0 else fill_pixel
+        top_rows.append(b"\0" + b"".join(corner) + edge * center_width + b"".join(reversed(corner)))
+    middle_row = b"\0" + border_pixel + fill_pixel * (width - 2) + border_pixel
+    return _png(width, height, b"".join(top_rows) + middle_row * center_height + b"".join(reversed(top_rows)))
 
 
 def _distance(x, y, ax, ay, bx, by):
@@ -79,6 +84,18 @@ def _distance(x, y, ax, ay, bx, by):
 
 def icon_image(master, name, color=SECONDARY_TEXT, size=16):
     """Small outline icons matching the preview's document/shield/list/history."""
+    red, green, blue = _rgb(color)
+    mask = _icon_mask(name, size)
+    raw = bytearray()
+    for y in range(size):
+        raw.append(0)
+        for alpha in mask[y * size:(y + 1) * size]:
+            raw.extend((red, green, blue, alpha))
+    return tk.PhotoImage(master=master, data=_png(size, size, raw), format="png")
+
+
+@lru_cache(maxsize=32)
+def _icon_mask(name, size):
     if name == "create":
         paths = (((8, 3), (15, 3), (20, 8), (20, 21), (8, 21), (8, 17)),
                  ((15, 3), (15, 8), (20, 8)), ((3, 12), (11, 12)), ((7, 8), (7, 16)))
@@ -97,28 +114,24 @@ def icon_image(master, name, color=SECONDARY_TEXT, size=16):
         paths = (((9, 4), (6, 4), (6, 21), (19, 21), (19, 4), (16, 4)),
                  ((9, 2), (15, 2), (15, 6), (9, 6), (9, 2)),
                  ((9, 13), (16, 13)), ((12.5, 9.5), (12.5, 16.5)))
-    red, green, blue = _rgb(color)
-    raw = bytearray()
+    stroke = .8
+    segments = tuple((ax, ay, bx, by, min(ax, bx) - stroke, max(ax, bx) + stroke,
+                      min(ay, by) - stroke, max(ay, by) + stroke)
+                     for path in paths for (ax, ay), (bx, by) in zip(path, path[1:]))
+    mask = bytearray()
     for y in range(size):
-        raw.append(0)
         for x in range(size):
             count = 0
             for sy in range(3):
                 for sx in range(3):
                     px, py = (x + (sx + .5) / 3) * 24 / size, (y + (sy + .5) / 3) * 24 / size
-                    hit = False
-                    for path in paths:
-                        for index in range(len(path) - 1):
-                            ax, ay = path[index]
-                            bx, by = path[index + 1]
-                            if _distance(px, py, ax, ay, bx, by) <= .8 ** 2:
-                                hit = True
-                                break
-                        if hit:
+                    for ax, ay, bx, by, left, right, top, bottom in segments:
+                        if (left <= px <= right and top <= py <= bottom
+                                and _distance(px, py, ax, ay, bx, by) <= stroke ** 2):
+                            count += 1
                             break
-                    count += hit
-            raw.extend((red, green, blue, round(count * 255 / 9)))
-    return tk.PhotoImage(master=master, data=_png(size, size, raw), format="png")
+            mask.append(round(count * 255 / 9))
+    return bytes(mask)
 
 
 class RoundedPanel(tk.Frame):
@@ -134,8 +147,6 @@ class RoundedPanel(tk.Frame):
         self._radius = max(2, round(radius * scale))
         self._border = border
         self._backdrop = tk.Canvas(self, bg=outer, borderwidth=0, highlightthickness=0)
-        # The backdrop covers the frame's padding as well as its content.
-        # The default 'inside' mode would inset it and leave square, bare gaps.
         self._backdrop.place(x=0, y=0, relwidth=1, relheight=1, bordermode="outside")
         source = rounded_image(self, bg, radius=self._radius, border=border)
         self._corners = ()

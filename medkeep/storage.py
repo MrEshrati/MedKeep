@@ -72,7 +72,6 @@ def encode_state(state: State) -> bytes:
     for record in state.queue:
         payload = record.to_bytes()
         chunks.append(len(payload).to_bytes(4, "big") + payload)
-    # join only assembles raw I/O bytes; the chunks live in our linked sequence.
     body = b"".join(chunks)
     if len(body) + 32 > MAX_FILE_BYTES:
         raise StorageError("The workspace has reached its 32 MiB file limit. Nothing was changed.")
@@ -117,7 +116,6 @@ def decode_state(data: bytes) -> State:
         state.queue.enqueue(MedicalRecord.from_bytes(reader.take(length)))
     reader.finish()
     state.validate_queue()
-    # Stored chain hashes are preserved. They are never silently recomputed here.
     return state
 
 
@@ -205,7 +203,6 @@ class WorkspaceStore:
                 stream.write(data)
                 stream.flush()
                 os.fsync(stream.fileno())
-            # Catch external changes made while serialization was running too.
             self.ensure_current()
             os.replace(temporary, self.path)
             self._fingerprint = data[-32:].hex()

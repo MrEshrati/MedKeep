@@ -89,7 +89,8 @@ class MedKeepApp:
         self.last_archive: Path | None = None
         self._history_records: LinkedSequence[MedicalRecord] = LinkedSequence()
         self._steps: LinkedSequence[CheckStep] = LinkedSequence()
-        self.status = tk.StringVar(value="Ready. Requests are saved automatically.")
+        self.status = tk.StringVar()
+        self._status_labels: list[tk.Label] = []
         self.patient = tk.StringVar()
         self.author = tk.StringVar()
         self.visit_date = tk.StringVar(value=date.today().isoformat())
@@ -112,20 +113,21 @@ class MedKeepApp:
         root.protocol("WM_DELETE_WINDOW", self.close)
         self._style()
         self._header()
-        self._footer()
         self.tabs = ttk.Notebook(root, style="Clinical.TNotebook")
         self.tabs.pack(fill="both", expand=True)
         self.create_page = ScrollPage(self.tabs, self.display_scale)
         self.approval_page = ScrollPage(self.tabs, self.display_scale)
         self.queue_page = ScrollPage(self.tabs, self.display_scale)
         self.history_page = ScrollPage(self.tabs, self.display_scale)
-        self._nav_icons = tuple((icon_image(root, name, MUTED, self.px(16)), icon_image(root, name, TEAL, self.px(16)))
-                                for name in ("create", "approval", "queue", "history"))
+        self._nav_icons = tuple(
+            (icon_image(root, name, MUTED, self.px(16)), "selected", icon_image(root, name, TEAL, self.px(16)))
+            for name in ("create", "approval", "queue", "history")
+        )
         self._clipboard_icon = icon_image(root, "clipboard", TEAL, self.px(17))
-        self.tabs.add(self.create_page, text="  Create", image=self._nav_icons[0][1], compound="left")
-        self.tabs.add(self.approval_page, text="  Approval", image=self._nav_icons[1][0], compound="left")
-        self.tabs.add(self.queue_page, text="  Queue  0", image=self._nav_icons[2][0], compound="left")
-        self.tabs.add(self.history_page, text="  History", image=self._nav_icons[3][0], compound="left")
+        self.tabs.add(self.create_page, text="  Create", image=self._nav_icons[0], compound="left")
+        self.tabs.add(self.approval_page, text="  Approval", image=self._nav_icons[1], compound="left")
+        self.tabs.add(self.queue_page, text="  Queue  0", image=self._nav_icons[2], compound="left")
+        self.tabs.add(self.history_page, text="  History", image=self._nav_icons[3], compound="left")
         self._create_section()
         self._approval_section()
         self._queue_section()
@@ -142,6 +144,7 @@ class MedKeepApp:
             variable.trace_add("write", self._preview)
         self.history_search.trace_add("write", self._filter_history)
         self._refresh()
+        root.update_idletasks()
         dark_titlebar(root)
 
     @property
@@ -161,40 +164,43 @@ class MedKeepApp:
         style.configure("Clinical.TNotebook", background=PANEL, borderwidth=0,
                         bordercolor=BG, lightcolor=BG, darkcolor=BG,
                         tabmargins=(self.px(28), self.px(13), 0, 0))
-        # Keep Tk's native notebook client element. A one-pixel image stretched
-        # as the client can enter a redraw loop on Windows/Tk 9.
         style.layout("Clinical.TNotebook", [("Notebook.client", {"sticky":"nswe"})])
         style.configure("Clinical.TNotebook.Tab", background=PANEL, foreground=MUTED,
                         borderwidth=0, padding=(self.px(16), self.px(11)), font=("Segoe UI", 10))
-        self._tab_plain = tk.PhotoImage(width=2, height=5)
-        self._tab_plain.put(PANEL, to=(0, 0, 2, 5))
-        self._tab_plain.put(LINE, to=(0, 4, 2, 5))
-        self._tab_selected = tk.PhotoImage(width=2, height=5)
-        self._tab_selected.put(SOFT, to=(0, 0, 2, 5))
-        self._tab_selected.put(TEAL, to=(0, 2, 2, 5))
+        tile_width, tile_height = self.px(128), self.px(32)
+        tab_height = tile_height + 3
+        self._tab_plain = tk.PhotoImage(master=self.root, width=tile_width, height=tab_height)
+        self._tab_plain.put(PANEL, to=(0, 0, tile_width, tab_height))
+        self._tab_plain.put(LINE, to=(0, tab_height - 1, tile_width, tab_height))
+        self._tab_selected = tk.PhotoImage(master=self.root, width=tile_width, height=tab_height)
+        self._tab_selected.put(SOFT, to=(0, 0, tile_width, tab_height))
+        self._tab_selected.put(TEAL, to=(0, tab_height - 3, tile_width, tab_height))
         style.element_create("Clinical.tab", "image", self._tab_plain,
-                             ("selected", self._tab_selected), border=(0, 0, 0, 3), sticky="nsew")
+                             ("selected", self._tab_selected), border=(0, 0, 0, 3),
+                             width=0, height=0, sticky="nsew")
         style.layout("Clinical.TNotebook.Tab", [("Clinical.tab", {"sticky": "nswe", "children": [
             ("Notebook.padding", {"sticky": "nswe", "children": [("Notebook.label", {"sticky": "nswe"})]})]})])
         style.map("Clinical.TNotebook.Tab", foreground=[("selected", TEAL)],
                   padding=[("selected", (self.px(16), self.px(11))), ("!selected", (self.px(16), self.px(11)))],
                   expand=[("selected", (0, 0, 0, 0))])
         radius = self.px(7)
-        self._button_plain = rounded_image(self.root, TEAL, radius=radius, border=TEAL)
-        self._button_hover = rounded_image(self.root, "#8ad7c2", radius=radius, border="#8ad7c2")
-        self._button_disabled = rounded_image(self.root, SOFT, radius=radius, border=LINE)
-        self._button_focus = rounded_image(self.root, TEAL, radius=radius, border=INK)
-        self._secondary_plain = rounded_image(self.root, PANEL, radius=radius, border=LINE)
-        self._secondary_hover = rounded_image(self.root, SOFT, radius=radius, border=TEAL)
-        self._entry_focus = rounded_image(self.root, PANEL, radius=radius, border=TEAL)
+        skin = {"radius": radius, "center": (tile_width, tile_height)}
+        self._button_plain = rounded_image(self.root, TEAL, **skin)
+        self._button_hover = rounded_image(self.root, "#8ad7c2", **skin)
+        self._button_disabled = rounded_image(self.root, SOFT, border=LINE, **skin)
+        self._button_focus = rounded_image(self.root, TEAL, border=INK, **skin)
+        self._secondary_plain = rounded_image(self.root, PANEL, border=LINE, **skin)
+        self._secondary_hover = rounded_image(self.root, SOFT, border=TEAL, **skin)
+        self._entry_focus = rounded_image(self.root, PANEL, border=TEAL, **skin)
+        element = {"border": radius, "padding": 0, "width": 0, "height": 0, "sticky": "nswe"}
         style.element_create("Clinical.primary", "image", self._button_plain,
                              ("disabled", self._button_disabled), ("active", self._button_hover),
-                             ("focus", self._button_focus), border=radius, padding=0, sticky="nswe")
+                             ("focus", self._button_focus), **element)
         style.element_create("Clinical.secondary", "image", self._secondary_plain,
                              ("disabled", self._button_disabled), ("active", self._secondary_hover),
-                             ("focus", self._secondary_hover), border=radius, padding=0, sticky="nswe")
+                             ("focus", self._secondary_hover), **element)
         style.element_create("Clinical.entry", "image", self._secondary_plain,
-                             ("focus", self._entry_focus), border=radius, padding=0, sticky="nswe")
+                             ("focus", self._entry_focus), **element)
         for name, element in (("Primary.TButton", "Clinical.primary"), ("Secondary.TButton", "Clinical.secondary"),
                               ("PrimaryPage.TButton", "Clinical.primary"), ("SecondaryPage.TButton", "Clinical.secondary")):
             style.layout(name, [(element, {"sticky":"nswe", "children":[
@@ -221,7 +227,6 @@ class MedKeepApp:
             ("Treeheading.padding", {"sticky":"nswe", "children":[("Treeheading.text", {"sticky":"we"})]})])
         style.map("Clinical.Treeview.Heading", background=[("active", SOFT)])
         style.map("Clinical.Treeview", background=[("selected", SOFT)], foreground=[("selected", TEAL)])
-        style.configure("Clinical.Horizontal.TProgressbar", background=TEAL, troughcolor=SOFT, borderwidth=0)
         style.configure("Clinical.Vertical.TScrollbar", background=LINE, troughcolor=BG, borderwidth=0,
                         arrowsize=6, width=6, relief="flat", bordercolor=BG, lightcolor=LINE, darkcolor=LINE)
         style.map("Clinical.Vertical.TScrollbar", background=[("active", MUTED), ("pressed", TEAL)])
@@ -245,24 +250,7 @@ class MedKeepApp:
         label(wordmark, "MedKeep", bg=PANEL, font=("Segoe UI", -self.px(19), "bold")).pack(anchor="w")
         label(wordmark, "R E C O R D S ,  K E P T  W I T H  C A R E .", bg=PANEL, fg=MUTED,
               font=("Segoe UI", 7)).pack(anchor="w")
-        pill = RoundedPanel(header, bg=PANEL, padding=(10, 5), radius=15, border=LINE)
-        pill.pack(side="right")
-        label(pill, "●", bg=PANEL, fg=TEAL, font=("Segoe UI", 7)).pack(side="left", padx=(0, self.px(6)))
-        label(pill, "Offline workspace", bg=PANEL, fg=MUTED, font=("Segoe UI", 8)).pack(side="left")
         tk.Frame(self.root, bg=LINE, height=1).pack(fill="x")
-
-    def _footer(self):
-        outer = tk.Frame(self.root, bg=BG)
-        outer.pack(side="bottom", fill="x")
-        tk.Frame(outer, bg=LINE, height=1).pack(fill="x")
-        footer = tk.Frame(outer, bg=BG, padx=self.px(28), pady=self.px(11))
-        footer.pack(fill="x")
-        self.status_label = label(footer, textvariable=self.status, fg=MUTED, font=("Segoe UI", 7), wraplength=self.px(780))
-        self.status_label.pack(side="left")
-        self.progress = ttk.Progressbar(footer, mode="indeterminate", length=100,
-                                       style="Clinical.Horizontal.TProgressbar")
-        self.saved_label = label(footer, "Saved locally", fg=MUTED, font=("Segoe UI", 7))
-        self.saved_label.pack(side="right")
 
     def _hero(self, page, eyebrow, title, subtitle):
         top = tk.Frame(page.body, bg=BG)
@@ -272,6 +260,11 @@ class MedKeepApp:
         label(top, title, font=("Segoe UI", -self.px(29), "bold")).grid(row=1, column=0, sticky="w")
         label(top, subtitle, fg=MUTED, font=SMALL).grid(row=2, column=0, sticky="w", pady=(8, 0))
         label(top, datetime.now().strftime("%d %b %Y"), fg=MUTED, font=("Segoe UI", 8)).grid(row=0, column=1, sticky="e")
+        feedback = label(top, textvariable=self.status, fg=TEAL, font=SMALL,
+                         wraplength=self.px(800), justify="left")
+        feedback.grid(row=3, column=0, columnspan=2, sticky="w", pady=(self.px(8), 0))
+        feedback.grid_remove()
+        self._status_labels.append(feedback)
 
     def _button(self, parent, text, command, primary=False):
         on_page = parent["bg"] == BG
@@ -319,8 +312,6 @@ class MedKeepApp:
                              inactiveselectbackground=SOFT)
         note_scroll = ttk.Scrollbar(note_frame, command=self.notes.yview, style="Clinical.Vertical.TScrollbar")
         self.notes.configure(yscrollcommand=note_scroll.set)
-        # Keep the clean preview surface; the narrow scrollbar appears only
-        # when a long note actually needs it.
         def note_scroll_position(first, last):
             note_scroll.set(first, last)
             if float(first) <= 0 and float(last) >= 1:
@@ -602,9 +593,6 @@ class MedKeepApp:
         self._job = _Job(action)
         self._set_status(message)
         self._update_controls()
-        self.saved_label.pack_forget()
-        self.progress.pack(side="right", padx=(12, 0))
-        self.progress.start(12)
         self._job.thread.start()
         self.root.after(50, lambda: self._poll(on_success))
 
@@ -616,9 +604,6 @@ class MedKeepApp:
             self.root.after(50, lambda: self._poll(on_success))
             return
         self._job = None
-        self.progress.stop()
-        self.progress.pack_forget()
-        self.saved_label.pack(side="right")
         self._update_controls()
         if job.error is not None:
             self.last_error = job.error
@@ -634,7 +619,9 @@ class MedKeepApp:
 
     def _set_status(self, message, error=False):
         self.status.set(message)
-        self.status_label.configure(fg=RED if error else TEAL)
+        for feedback in self._status_labels:
+            feedback.configure(fg=RED if error else TEAL)
+            feedback.grid()
 
     def _refresh(self):
         self.tabs.tab(self.queue_page, text=f"  Queue  {self.service.pending_count}")
@@ -727,9 +714,6 @@ class MedKeepApp:
                 return
 
     def _tab_changed(self, _event=None):
-        selected = self.tabs.index("current")
-        for index, images in enumerate(self._nav_icons):
-            self.tabs.tab(index, image=images[1 if selected == index else 0])
         if self.busy:
             return
         if self.tabs.select() == str(self.history_page) and self.service.report is not None and self.service.report.ok:

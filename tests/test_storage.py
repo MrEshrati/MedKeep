@@ -112,7 +112,6 @@ class StorageTests(unittest.TestCase):
         with self.assertRaises(DecodeError):
             MedKeepService(self.directory)
         self.assertEqual(path.read_bytes(), corrupted)
-        # The failed open released its lease; repair is explicit in this test.
         path.unlink()
         self.service = MedKeepService(self.directory)
 
@@ -140,7 +139,6 @@ class StorageTests(unittest.TestCase):
         self.add()
         raw = self.service.store.path.read_bytes()
         body = raw[:-32]
-        # node_count is the fourth u64-sized header component after the marker.
         altered = body[:24] + (10000000).to_bytes(8, "big") + body[32:]
         with self.assertRaises(DecodeError):
             decode_state(altered + bytes.fromhex(sha256(altered)))

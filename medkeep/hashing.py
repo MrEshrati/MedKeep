@@ -28,22 +28,25 @@ def rotate_right(word: int, count: int) -> int:
 class _Word:
     __slots__ = ("value", "next")
 
-    def __init__(self, value: int) -> None:
-        self.value = value
-        self.next: _Word = self
+    def __init__(self):
+        self.value = 0
+        self.next = None
 
 
 class _Schedule:
     """A moving window W[t-16]..W[t-1] in sixteen circular nodes."""
 
     def __init__(self, block: bytes) -> None:
-        head = _Word(int.from_bytes(block[:4], "big"))
-        tail = head
+        head = _Word()
+        head.value = int.from_bytes(block[:4], "big")
+        prev_node = head
         for offset in range(4, 64, 4):
-            tail.next = _Word(int.from_bytes(block[offset:offset + 4], "big"))
-            tail = tail.next
-        tail.next = head
-        self._last = tail
+            new_node = _Word()
+            new_node.value = int.from_bytes(block[offset:offset + 4], "big")
+            prev_node.next = new_node
+            prev_node = new_node
+        prev_node.next = head
+        self._last = prev_node
         self.oldest = head
         self.lag15 = head.next
         self.lag7 = head
@@ -68,8 +71,6 @@ class _Schedule:
         self.lag2 = self.lag2.next
         self.round += 1
         if self.round == 64:
-            # Break the circle when finished so reference counting can reclaim
-            # the nodes immediately, rather than relying on the cycle collector.
             self._last.next = None
         return word
 

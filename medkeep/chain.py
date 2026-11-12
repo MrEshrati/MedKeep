@@ -18,8 +18,7 @@ MAX_NODES = 10000
 class ChainNode:
     __slots__ = ("index", "kind", "payload", "previous", "link_hash")
 
-    def __init__(self, index: int, kind: str, payload: bytes,
-                 previous: ChainNode | None, link_hash: str) -> None:
+    def __init__(self, index=1, kind=CONTENT, payload=b"", previous=None, link_hash=ZERO_HASH):
         self.index = index
         self.kind = kind
         self.payload = payload
@@ -33,20 +32,27 @@ def digest_node(node: ChainNode) -> str:
     H(domain || index:u64 || kind:u8 || inherited_hash:32 bytes ||
       payload_length:u64 || payload). Genesis inherits 32 zero bytes.
     """
-    return sha256(
-        b"MedKeep/node/v1\x00" + node.index.to_bytes(8, "big")
-        + (b"C" if node.kind == CONTENT else b"S")
-        + bytes.fromhex(node.link_hash)
-        + len(node.payload).to_bytes(8, "big") + node.payload
-    )
+    data = b"MedKeep/node/v1\x00"
+    data += node.index.to_bytes(8, "big")
+    if node.kind == CONTENT:
+        data += b"C"
+    else:
+        data += b"S"
+    data += bytes.fromhex(node.link_hash)
+    data += len(node.payload).to_bytes(8, "big")
+    data += node.payload
+    return sha256(data)
 
 
 class CheckStep:
     __slots__ = ("index", "kind", "stored", "calculated", "ok")
 
     def __init__(self, index: int, kind: str, stored: str, calculated: str, ok: bool) -> None:
-        self.index, self.kind = index, kind
-        self.stored, self.calculated, self.ok = stored, calculated, ok
+        self.index = index
+        self.kind = kind
+        self.stored = stored
+        self.calculated = calculated
+        self.ok = ok
 
 
 class VerificationReport:
@@ -63,7 +69,6 @@ class VerificationReport:
         self.ok = False
         self.message = message
         self.failure_node = index
-        # Never expose partially verified record contents after any failure.
         self.records = LinkedSequence()
         return self
 
@@ -72,7 +77,7 @@ class HashChain:
     """Singly linked list: the tail points toward earlier nodes, never forward."""
 
     def __init__(self) -> None:
-        self.tail = ChainNode(1, CONTENT, b"", None, ZERO_HASH)
+        self.tail = ChainNode()
         self.node_count = 1
 
     @property
@@ -95,39 +100,51 @@ class HashChain:
             raise ValueError("Only processed requests can enter the record chain.")
         if record.request_id != self.record_count + 1:
             raise ValueError("Records must be appended in request arrival order.")
-        if self.node_count + (1 if self.node_count == 1 else 2) > MAX_NODES:
+        first_record = self.node_count == 1
+        nodes_to_add = 1 if first_record else 2
+        if self.node_count + nodes_to_add > MAX_NODES:
             raise ValueError("This workspace has reached its 5,000-record limit.")
-        if self.node_count == 1:
+        if first_record:
             if self.tail.payload or self.tail.previous is not None or self.tail.link_hash != ZERO_HASH:
                 raise ValueError("The initial content node is not empty and valid.")
-            content = self.tail
-            # Do the work before changing the seed: a hash failure must not leave
-            # a half-written first pair behind.
-            candidate = ChainNode(1, CONTENT, record.to_bytes(), None, ZERO_HASH)
-            seal = ChainNode(2, SEAL, b"", content, digest_node(candidate))
-            content.payload = candidate.payload
-            self.tail = seal
-            self.node_count = 2
-        else:
-            if self.tail.kind != SEAL or self.node_count % 2:
-                raise ValueError("The chain ends in an incomplete record pair.")
-            content = ChainNode(self.node_count + 1, CONTENT, record.to_bytes(), self.tail, digest_node(self.tail))
-            seal = ChainNode(self.node_count + 2, SEAL, b"", content, digest_node(content))
-            self.tail = seal
-            self.node_count += 2
+        elif self.tail.kind != SEAL or self.node_count % 2:
+            raise ValueError("The chain ends in an incomplete record pair.")
+
+        new_content = ChainNode()
+        new_content.payload = record.to_bytes()
+        if not first_record:
+            new_content.index = self.node_count + 1
+            new_content.previous = self.tail
+            new_content.link_hash = digest_node(self.tail)
+
+        new_seal = ChainNode()
+        new_seal.index = new_content.index + 1
+        new_seal.kind = SEAL
+        new_seal.link_hash = digest_node(new_content)
+
+        if first_record:
+            self.tail.payload = new_content.payload
+            new_content = self.tail
+        new_seal.previous = new_content
+        self.tail = new_seal
+        self.node_count += nodes_to_add
 
     def copy(self) -> HashChain:
-        result = HashChain()
-        newer: ChainNode | None = None
+        copied_chain = HashChain()
+        newer_node = None
         for node in self.nodes():
-            copied = ChainNode(node.index, node.kind, node.payload, None, node.link_hash)
-            if newer is None:
-                result.tail = copied
+            new_node = ChainNode()
+            new_node.index = node.index
+            new_node.kind = node.kind
+            new_node.payload = node.payload
+            new_node.link_hash = node.link_hash
+            if newer_node is None:
+                copied_chain.tail = new_node
             else:
-                newer.previous = copied
-            newer = copied
-        result.node_count = self.node_count
-        return result
+                newer_node.previous = new_node
+            newer_node = new_node
+        copied_chain.node_count = self.node_count
+        return copied_chain
 
     def verify(self) -> VerificationReport:
         report = VerificationReport()
@@ -176,8 +193,6 @@ class HashChain:
                     return report.fail("A record timestamp or FIFO sequence is invalid.", expected)
                 report.records.append(record)
             elif current.kind == SEAL and current is self.tail:
-                # The latest seal's own content has no successor to protect it.
-                # It is deliberately excluded from record extraction, as required.
                 report.ignored_tail_content = bool(current.payload)
             current = current.previous
             expected -= 1
