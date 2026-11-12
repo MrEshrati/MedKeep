@@ -33,7 +33,7 @@ The default workspace is `data/` beside the source package. Pending requests and
 | **Queue** | Shows pending requests in arrival order and processes the oldest into a content node and a seal node. Selecting another row does not change FIFO order. |
 | **History** | Opens after verification, shows records newest first, searches by patient/title/request, and exports verified records for a chosen processing date. |
 
-Saving a request or processing a new record invalidates the previous explicit approval. History verifies again before reading. Failed saves keep the original queue and snapshot; damaged data is preserved rather than silently reset. Daily archives leave the original chain intact.
+Adding a request to the queue keeps the current approval and History available. Processing a request changes the chain and requires a fresh approval. History verifies again before reading. Failed saves keep the original queue and snapshot. MedKeep preserves damaged workspace files for recovery. Daily archives leave the original chain intact.
 
 Keyboard shortcuts: **Ctrl+Enter** saves a Create request, **Ctrl+1–4** changes tabs, **Ctrl+Tab** cycles tabs, and **F5** verifies integrity. Pages scroll when the window is small. Expensive operations run outside the GUI thread, and closing during a save waits for that operation to finish.
 
@@ -80,7 +80,7 @@ The model and service do not depend on Tkinter. See [the storage design](docs/st
 python -m unittest discover -v
 ```
 
-The **51 tests** cover published SHA-256 vectors (including one million `a` bytes), incremental hashing and padding boundaries, FIFO operations, paired-node construction, tampering and cycles, Unicode, restart recovery, failed writes, external edits, archive dates, source packaging, and all four native UI workflows. A source constraint check protects against ready-made collection/hash shortcuts. The eight native UI tests require a display and skip when none is available; on a Linux CI runner they can run under Xvfb. A separate-process visible-window check detects native redraw hangs with a bounded timeout.
+The **52 tests** cover published SHA-256 vectors (including one million `a` bytes), incremental hashing and padding boundaries, FIFO operations, paired-node construction, tampering and cycles, Unicode, restart recovery, failed writes, external edits, archive dates, source packaging, and all four native UI workflows. A source constraint check protects against ready-made collection/hash shortcuts. The eight native UI tests require a display and skip when none is available; on a Linux CI runner they can run under Xvfb. A separate-process visible-window check detects native redraw hangs with a bounded timeout.
 
 All four actual desktop tabs and the smaller-window layout were visually inspected on Windows. Screenshots use temporary synthetic records.
 

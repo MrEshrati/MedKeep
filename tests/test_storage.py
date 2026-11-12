@@ -7,7 +7,7 @@ from unittest.mock import patch
 from medkeep.hashing import sha256
 from medkeep.records import DecodeError, ValidationError
 from medkeep.service import IntegrityError, MedKeepService
-from medkeep.storage import MAX_FILE_BYTES, StorageError, WorkspaceBusy, decode_state, encode_state
+from medkeep.storage import MAX_FILE_BYTES, StorageConflict, StorageError, WorkspaceBusy, decode_state, encode_state
 
 STAMP = "2026-11-09T14:00:00+01:00"
 
@@ -47,17 +47,25 @@ class StorageTests(unittest.TestCase):
         self.assertTrue(self.service.verify().ok)
         self.assertEqual(tuple(value.title for value in self.service.history()), ("Second", "First"))
 
-    def test_verification_gate_and_mutation_invalidation(self):
+    def test_approval_survives_enqueue_until_the_chain_changes(self):
         with self.assertRaises(IntegrityError):
             self.service.history()
-        self.add()
+        self.add("First")
+        self.assertIsNone(self.service.report)
         self.service.process_next()
         with self.assertRaises(IntegrityError):
             self.service.history()
         self.service.verify()
-        self.assertEqual(len(self.service.history()), 1)
+        approved_head = self.service.head_digest
         self.add("Second")
+        self.assertTrue(self.service.report.ok)
+        self.assertEqual(self.service.head_digest, approved_head)
+        self.assertEqual(self.service.pending_count, 1)
+        self.assertEqual(tuple(record.title for record in self.service.history()), ("First",))
+        self.service.process_next()
         self.assertIsNone(self.service.report)
+        with self.assertRaises(IntegrityError):
+            self.service.history()
 
     def test_unicode_roundtrip(self):
         self.add(notes="معاینه بیمار\nFollow-up ✅")
@@ -74,6 +82,7 @@ class StorageTests(unittest.TestCase):
                 self.add("Second")
         self.assertEqual(self.service.pending_count, 1)
         self.assertEqual(self.service.store.path.read_bytes(), before)
+        self.assertIsNone(self.service.report)
         self.assertEqual(self.add("Second").request_id, 2)
 
     def test_failed_process_does_not_lose_request(self):
@@ -102,6 +111,27 @@ class StorageTests(unittest.TestCase):
         with self.assertRaises(IntegrityError):
             self.service.archive("2026-11-09")
         self.assertEqual(self.service.store.path.read_bytes(), altered)
+
+    def test_external_edit_during_enqueue_clears_approval(self):
+        self.add("First")
+        self.service.process_next()
+        self.assertTrue(self.service.verify().ok)
+        path = self.service.store.path
+        raw = path.read_bytes()
+        altered = raw[:-1] + bytes([raw[-1] ^ 1])
+
+        def encode_after_edit(state):
+            path.write_bytes(altered)
+            return encode_state(state)
+
+        with patch("medkeep.storage.encode_state", side_effect=encode_after_edit):
+            with self.assertRaises(StorageConflict):
+                self.add("Second")
+        self.assertFalse(self.service.report.ok)
+        self.assertEqual(self.service.pending_count, 0)
+        self.assertEqual(path.read_bytes(), altered)
+        with self.assertRaises(IntegrityError):
+            self.service.history()
 
     def test_corrupt_snapshot_is_not_replaced(self):
         self.add()

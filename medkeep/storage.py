@@ -202,6 +202,8 @@ class WorkspaceStore:
             self.ensure_current()
             os.replace(temporary, self.path)
             self._fingerprint = data[-32:].hex()
+        except StorageConflict:
+            raise
         except OSError as error:
             raise StorageError("Could not save the workspace. The previous saved data and pending queue were kept.") from error
         finally:

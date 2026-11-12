@@ -18,7 +18,7 @@ The application permits at most 10,000 chain nodes (5,000 processed records), 5,
 
 ## Verification and recovery
 
-The snapshot checksum catches accidental changes to pending requests, metadata, and chain bytes. The paired-chain verifier independently checks the stored links. History requires a successful explicit verification, and reading it verifies again. Processing and enqueueing also verify before changing a workspace. A write invalidates the previous explicit approval.
+The snapshot checksum catches accidental changes to pending requests, metadata, and chain bytes. The paired-chain verifier independently checks the stored links. History requires a successful explicit verification, and reading it verifies again. Processing and enqueueing also verify before changing a workspace. Saving a pending request preserves an existing approval. Processing a request invalidates that approval because it changes the chain.
 
 A malformed snapshot fails to open and is preserved. A structurally readable chain with broken hashes can be inspected through its verification report, but cannot be changed, exported, or presented as verified history. The application never automatically resets the workspace or silently discards damaged records.
 

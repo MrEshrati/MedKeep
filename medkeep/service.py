@@ -59,36 +59,46 @@ class MedKeepService:
             result.append(record)
         return result
 
-    def verify(self):
+    def _check_integrity(self):
         try:
             self.store.ensure_current()
             self._state.validate_queue()
         except (StorageConflict, DecodeError) as error:
-            self.report = VerificationReport().fail(str(error))
-            return self.report
-        self.report = self._state.chain.verify()
+            return VerificationReport().fail(str(error))
+        return self._state.chain.verify()
+
+    def verify(self):
+        self.report = self._check_integrity()
         return self.report
 
     def _require_integrity(self):
-        report = self.verify()
+        report = self._check_integrity()
         if not report.ok:
+            self.report = report
             raise IntegrityError(report.message)
+        return report
 
-    def _commit(self, candidate: State):
-        self.store.save(candidate)
+    def _commit(self, candidate: State, report=None):
+        try:
+            self.store.save(candidate)
+        except StorageConflict as error:
+            self.report = VerificationReport().fail(str(error))
+            raise
         self._state = candidate
-        self.report = None
+        self.report = report
 
     def enqueue(self, patient: str, author: str, visit_date: str, title: str, notes: str):
         request = MedicalRecord(self._state.next_request_id, patient, author, visit_date,
                                 title, notes, self.clock())
         if self.pending_count >= MAX_PENDING:
             raise ValidationError("The queue is full (5,000 requests). Process pending requests first.")
-        self._require_integrity()
+        report = self._require_integrity()
+        if self.report is None or not self.report.ok:
+            report = None
         candidate = self._state.copy()
         candidate.queue.enqueue(request)
         candidate.next_request_id += 1
-        self._commit(candidate)
+        self._commit(candidate, report)
         return request
 
     def process_next(self):
@@ -105,12 +115,12 @@ class MedKeepService:
     def history(self):
         if self.report is None or not self.report.ok:
             raise IntegrityError("Verify the chain in Approval before opening record history.")
-        self._require_integrity()
+        self.report = self._require_integrity()
         return self.report.records
 
     def archive(self, day: str):
         validate_day(day)
-        self._require_integrity()
+        self.report = self._require_integrity()
         selected: LinkedSequence[MedicalRecord] = LinkedSequence()
         for record in self.report.records:
             if record.recorded_at[:10] == day:

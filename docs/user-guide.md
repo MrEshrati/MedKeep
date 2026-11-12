@@ -24,7 +24,7 @@ Requests and processed records are saved locally after each successful operation
 
 Open **Approval** and choose **Verify integrity**, or press **F5**. The report checks the entire chain newest to oldest. Select a row to compare its stored and recalculated hashes. Genesis uses a zero-hash sentinel. The newest seal's own content is ignored according to the assignment's rule; it is never presented as a medical record.
 
-On success, History becomes available. On failure, the report identifies the issue and blocks record extraction and writes. Verification is an integrity check, not clinician authorization or a guarantee that the underlying medical statement is true. A later saved request or processed record requires a fresh explicit approval.
+On success, History becomes available. On failure, the report identifies the issue and blocks record extraction and writes. Verification is an integrity check, not clinician authorization or a guarantee that the underlying medical statement is true. You can add more requests to the queue and keep using History. Run **Verify integrity** again after processing a request.
 
 ![The actual approval tab](images/clinical-app-approval.png)
 
